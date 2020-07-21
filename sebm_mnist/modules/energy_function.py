@@ -10,10 +10,12 @@ class Energy_function(nn.Module):
         
         self.energy = nn.Sequential(
             nn.Linear(pixels_dim, hidden_dim),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(hidden_dim, int(0.5*hidden_dim)),
-            nn.LeakyReLU(),
-            nn.Linear(int(0.5*hidden_dim), 1))
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(int(0.5*hidden_dim), 2),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(2, 1))
 
     def forward(self, images):
         """

@@ -2,7 +2,7 @@ import torch
 import time
 from sebm_mnist.objectives import mle
 
-def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epochs, sample_size, sgld_num_steps, sgld_step_size, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epochs, sample_size, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, CUDA, DEVICE, SAVE_VERSION):
     """
     training the energy based model (ebm) by maximizing the marginal likelihood
     """
@@ -13,14 +13,15 @@ def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epoch
             pixels_size = int(images.shape[-1]*images.shape[-2])
             batch_size = images.shape[0]
             optimizer.zero_grad()
-            images = images.squeeze(1).view(-1, pixels_size).repeat(sample_size, 1, 1)
+            images = images.squeeze(1).view(-1, pixels_size)
+#             images = images.repeat(sample_size, 1, 1)
             if CUDA:
                 images = images.cuda().to(DEVICE)
             if data_noise_sampler is not None: ## add Gaussian noise to true data images
-                data_noise = data_noise_sampler.sample(sample_size, batch_size, pixels_size)
+                data_noise = data_noise_sampler.sample(sample_size, batch_size, pixels_size).squeeze(0)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
                 images = images + data_noise
-            energy_data, energy_ebm = mle(ef, sgld_sampler, images, sgld_num_steps, sgld_step_size)
+            energy_data, energy_ebm = mle(ef, sgld_sampler, images, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent)
             loss = energy_data - energy_ebm
             loss.backward()
             optimizer.step()
@@ -54,24 +55,26 @@ if __name__ == "__main__":
     
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:0')
+        DEVICE = torch.device('cuda:1')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
     # optimization hyper-parameters
-    num_epochs = 100
-    sample_size = 10
+    num_epochs = 200
+    sample_size = 1
     batch_size = 100
-    lr = 1e-4
+    lr = 2 * 1e-5
     ## model hyper-parameters
     D = 2 # data point dimensions
-    hidden_dim = 400
+    hidden_dim = 1024
     pixels_dim = 28*28
     ## EBM hyper-parameters
-    data_noise_std = 0.1
+    data_noise_std = 0.0075
     sgld_num_steps = 20
     sgld_step_size = 1
-    sgld_init_sample_std = 1
+    sgld_init_sample_std = 0.1
     sgld_noise_std = 0.01
-    SAVE_VERSION = 'ebm-v1' 
+    buffer_size = 5000
+    buffer_percent = 0.95
+    SAVE_VERSION = 'ebm-buffer-single-sample' 
     
     ## data directory
     print('Load MNIST dataset...')
@@ -100,6 +103,8 @@ if __name__ == "__main__":
           sample_size=sample_size, 
           sgld_num_steps=sgld_num_steps, 
           sgld_step_size=sgld_step_size,
+          buffer_size=buffer_size, 
+          buffer_percent=buffer_percent,
           CUDA=CUDA, 
           DEVICE=DEVICE, 
           SAVE_VERSION=SAVE_VERSION)
