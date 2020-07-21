@@ -1,0 +1,2 @@
+Epoch=1, loss=4.51456e-01
+Epoch=2, loss=8.13283e-01

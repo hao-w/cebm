@@ -4,7 +4,7 @@ def posterior_nats(prior_nat1, prior_nat2, neural_ss):
     """
     return prior_nat1 + neural_ss, prior_nat2
     
-def unnormalized_marginal_log_prob(prior_nat1, prior_nat2, neural_ss):
+def unnormalized_marginal(prior_nat1, prior_nat2, neural_ss):
     """
     computes the log density of the unnormalized marignal \gamma(x ; \lambda)
     """
