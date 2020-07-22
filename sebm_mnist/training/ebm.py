@@ -57,26 +57,26 @@ if __name__ == "__main__":
     
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:0')
+        DEVICE = torch.device('cuda:1')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
     # optimization hyper-parameters
     num_epochs = 200
     sample_size = 1
     batch_size = 100
-    lr = 1e-4
+    lr = 5 * 1e-5
     ## model hyper-parameters
 #     hidden_dim = 1024
 #     pixels_dim = 28*28
     ## EBM hyper-parameters
-    data_noise_std = 0.0075
-    sgld_num_steps = 60
-    sgld_step_size = 10
-    sgld_init_sample_std = None
+    data_noise_std = 0.0001
+    sgld_num_steps = 100
+    sgld_step_size = 1
     sgld_noise_std = 0.005
     buffer_size = 5000
     buffer_percent = 0.95
-    regularize_alpha = 1
-    SAVE_VERSION = 'ebm-cnn-v1' 
+    regularize_alpha = 0.001
+    clipping_sgld = False
+    SAVE_VERSION = 'ebm-lr=%.2E-data-std=%.2E-sgld-steps=%.2E-size=%.2E-std=%.2E-reg=%.2E-clip=%s' % (lr, data_noise_std, sgld_num_steps, sgld_step_size, sgld_noise_std, regularize_alpha, clipping_sgld) 
     
     ## data directory
     print('Load MNIST dataset...')
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(list(ef.parameters()), lr=lr, betas=(0.9, 0.999))
     
     print('Initialize SGLD sampler...')
-    sgld_sampler = SGLD_sampler(sgld_init_sample_std, sgld_noise_std, CUDA, DEVICE)
+    sgld_sampler = SGLD_sampler(sgld_noise_std, clipping_sgld, CUDA, DEVICE)
     
     print('Initialize data noise sampler...')
     data_noise_sampler = DATA_NOISE_sampler(data_noise_std, CUDA, DEVICE)

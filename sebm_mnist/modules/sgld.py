@@ -6,7 +6,7 @@ class SGLD_sampler():
     """
     An sampler using stochastic gradient langevin dynamics 
     """
-    def __init__(self, init_sample_std, noise_std, CUDA, DEVICE):
+    def __init__(self, noise_std, clipping, CUDA, DEVICE):
         super(self.__class__, self).__init__()
 
 
@@ -19,6 +19,7 @@ class SGLD_sampler():
                                    torch.ones(1).cuda().to(DEVICE))
                         
         self.persistent_samples = None
+        self.clipping=clipping
     
     def sgld_update(self, ef, batch_size, pixels_size, num_steps, step_size, buffer_size, buffer_percent, persistent=True):
         """
@@ -45,7 +46,10 @@ class SGLD_sampler():
             # compute gradient 
             samples.requires_grad = True
             grads_tuple = torch.autograd.grad(outputs=ef.forward(samples).sum(), inputs=samples)
-            grads = torch.clamp(grads_tuple[0], min=-1e-2, max=1e-2)
+            if self.clipping:
+                grads = torch.clamp(grads_tuple[0], min=-1e-2, max=1e-2)
+            else:
+                grads = grads_tuple[0]
             noise = self.noise_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
             samples = (samples - (step_size / 2) * grads + noise).detach()
         if persistent:
