@@ -16,7 +16,7 @@ class Energy_function(nn.Module):
             nn.Linear(int(0.5*hidden_dim), 2),
             nn.LeakyReLU(inplace=True),
             nn.Linear(2, 1))
-
+        
     def forward(self, images):
         """
         return the energy function E(x)

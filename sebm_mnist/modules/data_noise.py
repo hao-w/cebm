@@ -11,5 +11,5 @@ class DATA_NOISE_sampler():
         self.noise_dist = Normal(torch.zeros(1).cuda().to(DEVICE),
                                    torch.ones(1).cuda().to(DEVICE) * noise_std)
         
-    def sample(self, sample_size, batch_size, pixels_size):
-        return self.noise_dist.sample((sample_size, batch_size, pixels_size,)).squeeze(-1) # S * B * pixels
+    def sample(self, batch_size, pixels_size):
+        return self.noise_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)

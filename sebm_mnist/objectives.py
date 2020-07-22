@@ -13,12 +13,9 @@ def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_si
     '''
     we acquire samples from ebm using stochastic gradient langevin dynamics
     """ 
-    batch_size, pixels_size = data_images.shape
-    sample_size = 1
-#     sample_size, batch_size, pixels_size = data_images.shape
+    batch_size, C, pixels_size, _ = data_images.shape
     energy_data = ef.forward(data_images)
     ebm_images = sgld_sampler.sgld_update(ef=ef, 
-                                          sample_size=sample_size, 
                                           batch_size=batch_size, 
                                           pixels_size=pixels_size, 
                                           num_steps=sgld_num_steps, 
@@ -27,6 +24,6 @@ def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_si
                                           buffer_percent=buffer_percent,
                                           persistent=True)
     energy_ebm = ef.forward(ebm_images)
-    return energy_data.mean(), energy_ebm.mean()
+    return energy_data, energy_ebm
     
 
