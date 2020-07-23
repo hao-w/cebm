@@ -9,9 +9,11 @@ class SGLD_sampler():
     def __init__(self, noise_std, clipping, CUDA, DEVICE):
         super(self.__class__, self).__init__()
 
-
-        self.noise_dist = Normal(torch.zeros(1).cuda().to(DEVICE),
-                                   torch.ones(1).cuda().to(DEVICE) * noise_std)
+        if noise_std == 0:
+            self.noise_dist = None
+        else:
+            self.noise_dist = Normal(torch.zeros(1).cuda().to(DEVICE),
+                                       torch.ones(1).cuda().to(DEVICE) * noise_std)
         
 #         self.initial_dist = Normal(torch.zeros(1).cuda().to(DEVICE),
 #                                    torch.ones(1).cuda().to(DEVICE) * init_sample_std)
@@ -50,7 +52,10 @@ class SGLD_sampler():
                 grads = torch.clamp(grads_tuple[0], min=-1e-2, max=1e-2)
             else:
                 grads = grads_tuple[0]
-            noise = self.noise_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
+            if self.noise_dist is not None:
+                noise = self.noise_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
+            else:
+                noise = 0.0
             samples = (samples - (step_size / 2) * grads + noise).detach()
         if persistent:
             self.persistent_samples = torch.cat((samples[:num_from_buffer], self.persistent_samples[num_from_buffer:]), 0)

@@ -2,7 +2,7 @@ import torch
 import time
 from sebm_mnist.objectives import mle
 
-def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epochs, sample_size, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, regularize_alpha, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epochs, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, regularize_alpha, CUDA, DEVICE, SAVE_VERSION):
     """
     training the energy based model (ebm) by maximizing the marginal likelihood
     """
@@ -20,7 +20,7 @@ def train(optimizer, ef, sgld_sampler, data_noise_sampler, train_data, num_epoch
             if data_noise_sampler is not None: ## add Gaussian noise to true data images
                 data_noise = data_noise_sampler.sample(batch_size, pixels_size)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
-                images = images + data_noise
+                images = images + 2 * data_noise
             energy_data, energy_ebm = mle(ef, sgld_sampler, images, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent)
             loss = energy_data.mean() - energy_ebm.mean()
             if regularize_alpha is not None:
@@ -50,10 +50,11 @@ def logging(metrics, filename, average_normalizer, epoch):
 if __name__ == "__main__":
     import torch
     from sebm_mnist.data import load_data
-#     from sebm_mnist.objectives import mle
     from sebm_mnist.modules.sgld import SGLD_sampler
     from sebm_mnist.modules.data_noise import DATA_NOISE_sampler
     from sebm_mnist.modules.energy_function_cnn import Energy_function
+    
+    torch.manual_seed(123)
     
     CUDA = torch.cuda.is_available()
     if CUDA:
@@ -61,22 +62,18 @@ if __name__ == "__main__":
     print('torch:', torch.__version__, 'CUDA:', CUDA)
     # optimization hyper-parameters
     num_epochs = 200
-    sample_size = 1
     batch_size = 100
-    lr = 5 * 1e-5
-    ## model hyper-parameters
-#     hidden_dim = 1024
-#     pixels_dim = 28*28
+    lr = 1 * 1e-4
     ## EBM hyper-parameters
-    data_noise_std = 0.0001
-    sgld_num_steps = 100
+    sgld_num_steps = 40
+    sgld_noise_std = 7.5e-3
     sgld_step_size = 1
-    sgld_noise_std = 0.005
+    data_noise_std = 1.5e-2
     buffer_size = 5000
     buffer_percent = 0.95
-    regularize_alpha = 0.001
+    regularize_alpha = None
     clipping_sgld = False
-    SAVE_VERSION = 'ebm-lr=%.2E-data-std=%.2E-sgld-steps=%.2E-size=%.2E-std=%.2E-reg=%.2E-clip=%s' % (lr, data_noise_std, sgld_num_steps, sgld_step_size, sgld_noise_std, regularize_alpha, clipping_sgld) 
+    SAVE_VERSION = 'ebm-anatomy-lr=%.2E-data-std=%.2E-sgld-steps=%.2E-size=%.2E-std=%.2E' % (lr, data_noise_std, sgld_num_steps, sgld_step_size, sgld_noise_std) 
     
     ## data directory
     print('Load MNIST dataset...')
@@ -102,7 +99,6 @@ if __name__ == "__main__":
           data_noise_sampler=data_noise_sampler,
           train_data=train_data, 
           num_epochs=num_epochs, 
-          sample_size=sample_size, 
           sgld_num_steps=sgld_num_steps, 
           sgld_step_size=sgld_step_size,
           buffer_size=buffer_size, 

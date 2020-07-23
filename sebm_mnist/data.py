@@ -10,8 +10,14 @@ def load_data(DATA_DIR, batch_size):
         os.makedirs(DATA_DIR)
 
     transform = transforms.Compose([
+            transforms.Resize(32),
+            transforms.CenterCrop(32),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))]) 
+    
+#     transform = transforms.Compose([
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.5,), (0.5,))]) 
 
     train_data = torch.utils.data.DataLoader(
                     datasets.MNIST(DATA_DIR, train=True, download=True,
