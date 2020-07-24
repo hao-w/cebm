@@ -52,13 +52,13 @@ if __name__ == "__main__":
     from sebm_mnist.data import load_data
     from sebm_mnist.modules.sgld import SGLD_sampler
     from sebm_mnist.modules.data_noise import DATA_NOISE_sampler
-    from sebm_mnist.modules.energy_function_cnn import Energy_function
+    from sebm_mnist.modules.energy_function_anatomy import Energy_function
     
     torch.manual_seed(123)
     
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:1')
+        DEVICE = torch.device('cuda:0')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
     # optimization hyper-parameters
     num_epochs = 200
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     
     ## data directory
     print('Load MNIST dataset...')
-    DATA_DIR = '/home/hao/Research/sebm_data/'
+    DATA_DIR = '/mlrg/hcwu/sebm_data/'
     train_data, test_data = load_data(DATA_DIR, batch_size)
     
     print('Initialize energy function and optimizer...')
