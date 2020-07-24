@@ -45,7 +45,7 @@ def logging(metrics, filename, average_normalizer, epoch):
     
 if __name__ == "__main__":
     import torch
-    from vanilla.data import load_data
+    from vanilla.data import load_mnist
     from vanilla.sgld import SGLD_sampler
     from vanilla.data_noise import DATA_NOISE_sampler
     from vanilla.nets.energy_function_anatomy_vanilla_cnn import Energy_function
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     batch_size = 100
     lr = 1 * 1e-4
     ## EBM hyper-parameters
-    sgld_num_steps = 100
+    sgld_num_steps = 40
     sgld_noise_std = 7.5e-3
     sgld_step_size = 1
     data_noise_std = 1.5e-2
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     
     ## data directory
     print('Load MNIST dataset...')
-    DATA_DIR = '/home/hao/Research/sebm_data/'
-    train_data, test_data = load_data(DATA_DIR, batch_size, resize=32)
+    DATA_DIR = '/mlrg/hcwu/sebm_data/'
+    train_data, test_data = load_mnist(DATA_DIR, batch_size, resize=32)
     
     print('Initialize energy function and optimizer...')
     ef = Energy_function()
