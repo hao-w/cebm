@@ -63,7 +63,7 @@ if __name__ == "__main__":
     # optimization hyper-parameters
     num_epochs = 200
     batch_size = 100
-    lr = 1 * 1e-4
+    lr = 5 * 1e-5
     ## EBM hyper-parameters
     sgld_num_steps = 40
     sgld_noise_std = 7.5e-3
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     data_noise_std = 1.5e-2
     buffer_size = 5000
     buffer_percent = 0.95
-    regularize_alpha = None
+    regularize_alpha = 0.01
     clipping_sgld = False
     SAVE_VERSION = 'ebm-anatomy-lr=%.2E-data-std=%.2E-sgld-steps=%.2E-size=%.2E-std=%.2E' % (lr, data_noise_std, sgld_num_steps, sgld_step_size, sgld_noise_std) 
     
