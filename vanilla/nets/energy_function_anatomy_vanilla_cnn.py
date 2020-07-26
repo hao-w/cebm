@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class Energy_function(nn.Module):
     """
-    An energy function that maps an image x to a scalar value which is the energy E(x)
+    The Vanilla CNN network used in the Anatomy model
     """
     def __init__(self, negative_slope=0.05):
         super(self.__class__, self).__init__()
