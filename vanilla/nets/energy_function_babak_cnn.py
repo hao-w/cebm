@@ -16,7 +16,8 @@ class Energy_function(nn.Module):
             nn.Conv2d(64, 32, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
             nn.Conv2d(32, 32, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
+            nn.LeakyReLU(negative_slope=negative_slope, inplace=True))
+
         self.fc = nn.Sequential(
             nn.Linear(288, 128),
             nn.LeakyReLU(negative_slope=negative_slope, inplace=True),

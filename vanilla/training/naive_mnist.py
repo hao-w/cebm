@@ -48,7 +48,7 @@ if __name__ == "__main__":
     from vanilla.data import load_mnist
     from vanilla.sgld import SGLD_sampler
     from vanilla.data_noise import DATA_NOISE_sampler
-    from vanilla.nets.energy_function_anatomy_vanilla_cnn import Energy_function
+    from vanilla.nets.energy_function_babak_cnn import Energy_function
         
     CUDA = torch.cuda.is_available()
     if CUDA:
