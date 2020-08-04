@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-def mle(ef, proposal, data_images, regularize_alpha=None):
+def mle(ef, proposal, data_images, sample_size, regularize_alpha=None):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -13,18 +13,19 @@ def mle(ef, proposal, data_images, regularize_alpha=None):
     """ 
     batch_size, C, pixels_size, _ = data_images.shape
     energy_data = ef.forward(data_images)
-    latents_samples, latents_prior_log_pdf = ef.priors(batch_size=batch_size)
+    latents_samples, latents_prior_log_pdf = ef.priors(sample_size=sample_size, batch_size=batch_size)
     proposal_samples, proposal_log_pdf = proposal.forward(latents=latents_samples)
-    proposal_samples = (proposal_samples.view(batch_size, pixels_size, pixels_size).unsqueeze(1) - 0.5) / 0.5
+    proposal_samples = (proposal_samples.view(sample_size, batch_size, pixels_size, pixels_size).unsqueeze(2) - 0.5) / 0.5
     energy_ebm, ll = ef.forward(proposal_samples, latents=latents_samples)
     w = F.softmax(ll - proposal_log_pdf, 0).detach()
-    loss_theta = energy_data.mean() - (w * energy_ebm).sum(0)
-    loss_phi = (- w * proposal_log_pdf).sum(0)
+    ess = (1. / (w**2).sum(0)).mean()
+    loss_theta = energy_data.mean() - (w * energy_ebm).sum(0).mean()
+    loss_phi = (w * (- proposal_log_pdf)).sum(0).mean()
 #     loss = energy_data.sum(-1).sum(-1).mean() - energy_ebm.sum(-1).sum(-1).mean()
     if regularize_alpha is not None:
         regularize_term = regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
     else:
         regularize_term = 0
-    return loss_theta, loss_phi, regularize_term
+    return loss_theta, loss_phi, regularize_term, ess
     
 

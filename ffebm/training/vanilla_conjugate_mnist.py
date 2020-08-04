@@ -2,13 +2,13 @@ import torch
 import time
 from ffebm.objectives import mle
 
-def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, regularize_alpha, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, sample_size, regularize_alpha, CUDA, DEVICE, SAVE_VERSION):
     """
     training the energy based model (ebm) by maximizing the marginal likelihood
     """
     for epoch in range(num_epochs):
         time_start = time.time()
-        metrics = {'loss_theta' : 0.0, 'loss_phi' : 0.0}
+        metrics = {'loss_theta' : 0.0, 'loss_phi' : 0.0, 'ess' : 0.0}
         for b, (images, _) in enumerate(train_data):
             pixels_size = images.shape[-1]
             batch_size = images.shape[0]
@@ -19,7 +19,7 @@ def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, r
                 data_noise = data_noise_sampler.sample(batch_size, pixels_size)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
                 images = images + 2 * data_noise
-            loss_theta, loss_phi, regularize_term = mle(ef, proposal, images, regularize_alpha=regularize_alpha)
+            loss_theta, loss_phi, regularize_term, ess = mle(ef, proposal, images, sample_size, regularize_alpha=regularize_alpha)
             loss = loss_theta + loss_phi + regularize_term
 #             if regularize_alpha is not None:
 #                 loss = loss + 
@@ -28,6 +28,7 @@ def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, r
         
             metrics['loss_theta'] += loss_theta.detach()
             metrics['loss_phi'] += loss_phi.detach()
+            metrics['ess'] +=  ess
         torch.save(ef.state_dict(), "../weights/ef-%s" % SAVE_VERSION)
         torch.save(proposal.state_dict(), "../weights/proposal-%s" % SAVE_VERSION)
         logging(metrics=metrics, filename=SAVE_VERSION, average_normalizer=b+1, epoch=epoch)
@@ -61,7 +62,8 @@ if __name__ == "__main__":
     # optimization hyper-parameters based on the source code: https://github.com/point0bar1/ebm-anatomy/blob/master/config_locker/mnist_convergent.json
     num_epochs = 1000
     batch_size = 100
-    lr = 1 * 1e-4
+    sample_size = 100
+    lr = 2 * 1e-5
     latent_dim = 10
     data_noise_std = 1.5e-2
     regularize_alpha = 0.01
@@ -90,6 +92,7 @@ if __name__ == "__main__":
           data_noise_sampler=data_noise_sampler,
           train_data=train_data, 
           num_epochs=num_epochs, 
+          sample_size=sample_size,
           regularize_alpha=regularize_alpha,
           CUDA=CUDA, 
           DEVICE=DEVICE, 
