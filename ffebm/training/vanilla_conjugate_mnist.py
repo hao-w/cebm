@@ -2,7 +2,7 @@ import torch
 import time
 from ffebm.objectives import mle
 
-def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, regularize_alpha, CUDA, DEVICE, SAVE_VERSION):
     """
     training the energy based model (ebm) by maximizing the marginal likelihood
     """
@@ -19,10 +19,10 @@ def train(optimizer, ef, proposal, data_noise_sampler, train_data, num_epochs, C
                 data_noise = data_noise_sampler.sample(batch_size, pixels_size)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
                 images = images + 2 * data_noise
-            loss_theta, loss_phi = mle(ef, proposal, images)
-            loss = loss_theta + loss_phi
+            loss_theta, loss_phi, regularize_term = mle(ef, proposal, images, regularize_alpha=regularize_alpha)
+            loss = loss_theta + loss_phi + regularize_term
 #             if regularize_alpha is not None:
-#                 loss = loss + regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
+#                 loss = loss + 
             loss.backward()
             optimizer.step()
         
@@ -64,6 +64,7 @@ if __name__ == "__main__":
     lr = 1 * 1e-4
     latent_dim = 10
     data_noise_std = 1.5e-2
+    regularize_alpha = 0.01
     SAVE_VERSION = 'mnist-vanilla-conjugate' 
     
     ## data directory
@@ -89,6 +90,7 @@ if __name__ == "__main__":
           data_noise_sampler=data_noise_sampler,
           train_data=train_data, 
           num_epochs=num_epochs, 
+          regularize_alpha=regularize_alpha,
           CUDA=CUDA, 
           DEVICE=DEVICE, 
           SAVE_VERSION=SAVE_VERSION)

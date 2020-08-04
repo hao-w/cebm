@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-def mle(ef, proposal, data_images):
+def mle(ef, proposal, data_images, regularize_alpha=None):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -21,6 +21,10 @@ def mle(ef, proposal, data_images):
     loss_theta = energy_data.mean() - (w * energy_ebm).sum(0)
     loss_phi = (- w * proposal_log_pdf).sum(0)
 #     loss = energy_data.sum(-1).sum(-1).mean() - energy_ebm.sum(-1).sum(-1).mean()
-    return loss_theta, loss_phi
+    if regularize_alpha is not None:
+        regularize_term = regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
+    else:
+        regularize_term = 0
+    return loss_theta, loss_phi, regularize_term
     
 
