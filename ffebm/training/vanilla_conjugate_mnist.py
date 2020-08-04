@@ -62,12 +62,12 @@ if __name__ == "__main__":
     # optimization hyper-parameters based on the source code: https://github.com/point0bar1/ebm-anatomy/blob/master/config_locker/mnist_convergent.json
     num_epochs = 1000
     batch_size = 100
-    sample_size = 100
+    sample_size = 50
     lr = 2 * 1e-5
     latent_dim = 10
     data_noise_std = 1.5e-2
     regularize_alpha = 0.01
-    SAVE_VERSION = 'mnist-vanilla-conjugate' 
+    SAVE_VERSION = 'mnist-vanilla-conjugate-%.2Esamples-%.2Elr-%.2Elatentdim-%.2Eregalpha-%.2Edata_noise_std' 
     
     ## data directory
     print('Load MNIST dataset...')
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     print('Initialize data noise sampler...')
     data_noise_sampler = DATA_NOISE_sampler(data_noise_std, CUDA, DEVICE)
-    
+    print('Start training...')
     train(optimizer=optimizer, 
           ef=ef, 
           proposal=proposal,
