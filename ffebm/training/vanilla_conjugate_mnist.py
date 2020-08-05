@@ -58,10 +58,10 @@ if __name__ == "__main__":
     # optimization hyper-parameters based on the source code: https://github.com/point0bar1/ebm-anatomy/blob/master/config_locker/mnist_convergent.json
     num_epochs = 1000
     batch_size = 100
-#     sample_size = 50
+    latent_dim = 10
     lr = 1 * 1e-4
     ## EBM hyper-parameters
-    sgld_num_steps = 40
+    sgld_num_steps = 2
     sgld_noise_std = 7.5e-3
     sgld_step_size = 1
     data_noise_std = 1.5e-2
