@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-def mle(ef, proposal, data_images, sample_size, regularize_alpha=None):
+def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, regularize_alpha=None):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -13,19 +13,21 @@ def mle(ef, proposal, data_images, sample_size, regularize_alpha=None):
     """ 
     batch_size, C, pixels_size, _ = data_images.shape
     energy_data = ef.forward(data_images)
-    latents_samples, latents_prior_log_pdf = ef.priors(sample_size=sample_size, batch_size=batch_size)
-    proposal_samples, proposal_log_pdf = proposal.forward(latents=latents_samples)
-    proposal_samples = (proposal_samples.view(sample_size, batch_size, pixels_size, pixels_size).unsqueeze(2) - 0.5) / 0.5
-    energy_ebm, ll = ef.forward(proposal_samples, latents=latents_samples)
-    w = F.softmax(ll - proposal_log_pdf, 0).detach()
-    ess = (1. / (w**2).sum(0)).mean()
-    loss_theta = energy_data.mean() - (w * energy_ebm).sum(0).mean()
-    loss_phi = (w * (- proposal_log_pdf)).sum(0).mean()
+    ebm_images = sgld_sampler.sgld_update(ef=ef, 
+                                          batch_size=batch_size, 
+                                          pixels_size=pixels_size, 
+                                          num_steps=sgld_num_steps, 
+                                          step_size=sgld_step_size,
+                                          buffer_size=buffer_size,
+                                          buffer_percent=buffer_percent,
+                                          persistent=True)
+    energy_ebm = ef.forward(ebm_images)
+    loss_theta = energy_data.mean() -  energy_ebm.mean()
 #     loss = energy_data.sum(-1).sum(-1).mean() - energy_ebm.sum(-1).sum(-1).mean()
     if regularize_alpha is not None:
         regularize_term = regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
     else:
         regularize_term = 0
-    return loss_theta, loss_phi, regularize_term, ess
+    return loss_theta, regularize_term
     
 

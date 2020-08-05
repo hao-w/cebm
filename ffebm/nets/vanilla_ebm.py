@@ -42,12 +42,8 @@ class Energy_function(nn.Module):
         in addition, if the latents is given, also compute the 
         heuristic factor.
         """
-        if latents is None:
-            B, C, _, _ = images.shape
-            neural_ss1 = self.fc(self.cnn(images).view(B, 288)) 
-        else:
-            S, B, C, pixel_size, _, = images.shape
-            neural_ss1 = self.fc(self.cnn(images.view(S*B, 1, pixel_size, pixel_size)).view(S*B, 288)).view(S, B, latents.shape[-1])
+        B, C, _, _ = images.shape
+        neural_ss1 = self.fc(self.cnn(images).view(B, 288)) 
 #         neural_ss1 = self.fc(self.cnn(images).view(B, 288)) 
         Ex = self.energy(prior_nat1=self.prior_nat1,
                          prior_nat2=self.prior_nat2,
@@ -58,12 +54,12 @@ class Energy_function(nn.Module):
         else:
             return Ex.sum(-1), (neural_ss1 * latents).sum(-1)
             
-    def priors(self, sample_size, batch_size, samples=None):
+    def priors(self, batch_size, samples=None):
         prior_mu, prior_sigma = nats_to_params(self.prior_nat1, self.prior_nat2)
         prior_dist = Normal(prior_mu, prior_sigma)
         if samples is None:         
-            samples = prior_dist.sample((sample_size, batch_size, ))
-        log_pdf = prior_dist.log_prob(samples).sum(-1) # size  S * B 
+            samples = prior_dist.sample((batch_size, ))
+        log_pdf = prior_dist.log_prob(samples).sum(-1) # size  B 
         return samples, log_pdf
             
     def normal_log_partition(self, nat1, nat2):

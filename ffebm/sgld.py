@@ -41,11 +41,12 @@ class SGLD_sampler():
         else: 
             samples = self.init_samples(batch_size, pixels_size)
 
-            
+        latents, _ = ef.priors(batch_size) # sample latent from the prior and fix the values  
+        
         for l in range(num_steps):
             # compute gradient 
             samples.requires_grad = True
-            grads_tuple = torch.autograd.grad(outputs=ef.forward(samples).sum(), inputs=samples)
+            grads_tuple = torch.autograd.grad(outputs=ef.forward(samples, latents=latents).sum(), inputs=samples)
             if self.clipping:
                 grads = torch.clamp(grads_tuple[0], min=-1e-2, max=1e-2)
             else:

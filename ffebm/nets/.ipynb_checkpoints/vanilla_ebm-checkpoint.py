@@ -42,8 +42,9 @@ class Energy_function(nn.Module):
         in addition, if the latents is given, also compute the 
         heuristic factor.
         """
-        B, C, _, _, = images.shape
+        B, C, _, _ = images.shape
         neural_ss1 = self.fc(self.cnn(images).view(B, 288)) 
+#         neural_ss1 = self.fc(self.cnn(images).view(B, 288)) 
         Ex = self.energy(prior_nat1=self.prior_nat1,
                          prior_nat2=self.prior_nat2,
                          posterior_nat1=self.prior_nat1 + neural_ss1,

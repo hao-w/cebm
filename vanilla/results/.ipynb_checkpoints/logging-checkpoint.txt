@@ -1,3 +1,0 @@
-So far the best set of hyperparameters I found are :
-LOAD_VERSION = 'ebm-lr=5.00E-05-data-std=7.50E-03-sgld-steps=4.00E+01-size=1.00E+00-std=5.00E-03-reg=1.00E-03-clip=False'
-with swich activation and cnn architecture.
