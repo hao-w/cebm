@@ -62,7 +62,7 @@ if __name__ == "__main__":
     ## data directory
     print('Load MNIST dataset...')
     DATA_DIR = '/home/hao/Research/sebm_data/'
-    train_data, test_data = load_mnist(DATA_DIR, batch_size, resize=None)
+    train_data, test_data = load_mnist(DATA_DIR, batch_size)
     
     print('Initialize encoder and decoder and optimizer...')
     enc = Encoder(latent_dim, hidden_dim, pixel_dim)

@@ -7,7 +7,7 @@ class Encoder(nn.Module):
     A MLP encoder in VAE
     """
     
-    def __init__(self, latent_dim, hidden_dim, pixel_dim):
+    def __init__(self, latent_dim, hidden_dim, pixel_dim, reparameterized=False):
         super(self.__class__, self).__init__()
         
         self.hidden = nn.Sequential(
@@ -22,12 +22,17 @@ class Encoder(nn.Module):
         self.q_log_sigma = nn.Sequential(
             nn.Linear(hidden_dim, latent_dim))
         
+        self.reparameterized = reparameterized
+        
     def forward(self, images):
         h = self.hidden(images)
         q_mu = self.q_mu(h)
         q_sigma = self.q_log_sigma(h).exp()
         q_dist = Normal(q_mu, q_sigma)
-        latents = q_dist.sample()
+        if self.reparameterized:
+            latents = q_dist.rsample()
+        else:
+            latents = q_dist.sample()
         q_log_pdf = q_dist.log_prob(latents).sum(-1)
         return latents, q_log_pdf
             
