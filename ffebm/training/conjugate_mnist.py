@@ -73,7 +73,7 @@ if __name__ == "__main__":
     ## data directory
     print('Load MNIST dataset...')
     DATA_DIR = '/mlrg/hcwu/sebm_data/'
-    train_data, test_data = load_mnist(DATA_DIR, batch_size, resize=32)
+    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=0.5, resize=32)
     
     print('Initialize energy function and optimizer...')
     ef = Energy_function(CUDA=CUDA, DEVICE=DEVICE)
