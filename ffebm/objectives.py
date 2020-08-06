@@ -58,3 +58,13 @@ def vae(enc, dec, images):
     log_w = (ll + p_log_pdf - q_log_pdf)
     trace['elbo'] = log_w.mean()
     return trace 
+
+def ae(enc, dec, images):
+    """
+    compute the ELBO in vae
+    """
+    trace = dict()
+    latents = enc(images)
+    recon, ll = dec(latents, images)
+    trace['loss'] = - ll.mean()
+    return trace 
