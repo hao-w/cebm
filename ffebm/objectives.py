@@ -37,11 +37,11 @@ def rws(enc, dec, images):
     """
     trace = dict()
     latents, q_log_pdf = enc(images)
-    p_log_pdf, recon, ll = dec(latents)
+    p_log_pdf, recon, ll = dec(latents, images)
     log_w = (ll + p_log_pdf - q_log_pdf).detach()
     w = F.softmax(log_w, 0)
     trace['loss_theta'] = (- w * ll).sum(0).mean()
-    trace['loss_phi'] = (- w * log_q_pdf).sum(0).mean()
+    trace['loss_phi'] = (- w * q_log_pdf).sum(0).mean()
     trace['eubo'] = (w * log_w).sum(0).mean()
     trace['ess'] = (1 / (w**2).sum(0)).mean()
     return trace 

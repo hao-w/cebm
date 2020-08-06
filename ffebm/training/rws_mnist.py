@@ -10,7 +10,7 @@ def train(optimizer, enc, dec, train_data, num_epochs, sample_size, batch_size, 
         time_start = time.time()
         metrics = dict()
         for b, (images, _) in enumerate(train_data):
-            batch_size, _, pixel_size_sqrt, _ = images
+            batch_size, _, pixel_size_sqrt, _ = images.shape
             images = images.squeeze(1).view(batch_size, pixel_size_sqrt*pixel_size_sqrt).repeat(sample_size, 1, 1)
             optimizer.zero_grad()
             if CUDA:
@@ -42,8 +42,8 @@ def logging(metrics, filename, average_normalizer, epoch):
 if __name__ == "__main__":
     import torch
     from ffebm.data import load_mnist
-    from ffebm.nets.vae_encoder import Encoder
-    from ffebm.nets.vae_decoder import Decoder
+    from ffebm.nets.mlp_encoder import Encoder
+    from ffebm.nets.mlp_decoder import Decoder
     CUDA = torch.cuda.is_available()
     if CUDA:
         DEVICE = torch.device('cuda:0')
@@ -51,6 +51,7 @@ if __name__ == "__main__":
     num_epochs = 1000
     batch_size = 100
     pixel_dim = 784
+    sample_size = 10
     hidden_dim = 128
     latent_dim = 10
     lr = 1 * 1e-4
