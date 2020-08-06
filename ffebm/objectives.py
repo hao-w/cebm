@@ -43,6 +43,7 @@ def rws(enc, dec, images):
     trace['loss_theta'] = (- w * ll).sum(0).mean()
     trace['loss_phi'] = (- w * q_log_pdf).sum(0).mean()
     trace['eubo'] = (w * log_w).sum(0).mean()
+    trace['elbo'] = log_w.mean()
     trace['ess'] = (1 / (w**2).sum(0)).mean()
     return trace 
     
