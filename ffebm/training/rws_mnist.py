@@ -18,7 +18,8 @@ def train(optimizer, enc, dec, train_data, num_epochs, sample_size, batch_size, 
             trace = rws(enc, dec, images)
             (trace['loss_theta'] + trace['loss_phi']).backward()
             optimizer.step()
-        torch.save(ef.state_dict(), "../weights/ef-%s" % SAVE_VERSION)
+        torch.save(enc.state_dict(), "../weights/rws-mlp-enc-%s" % SAVE_VERSION)
+        torch.save(dec.state_dict(), "../weights/rws-mlp-dec-%s" % SAVE_VERSION)
         for key in trace.keys():
             if key not in metrics.keys():
                 metrics[key] = trace[key].detach()
