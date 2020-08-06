@@ -18,13 +18,13 @@ def train(optimizer, enc, dec, train_data, num_epochs, sample_size, batch_size, 
             trace = rws(enc, dec, images)
             (trace['loss_theta'] + trace['loss_phi']).backward()
             optimizer.step()
+            for key in trace.keys():
+                if key not in metrics:
+                    metrics[key] = trace[key].detach()
+                else:
+                    metrics[key] += trace[key].detach()
         torch.save(enc.state_dict(), "../weights/rws-mlp-enc-%s" % SAVE_VERSION)
         torch.save(dec.state_dict(), "../weights/rws-mlp-dec-%s" % SAVE_VERSION)
-        for key in trace.keys():
-            if key not in metrics:
-                metrics[key] = trace[key].detach()
-            else:
-                metrics[key] += trace[key].detach()
         logging(metrics=metrics, filename=SAVE_VERSION, average_normalizer=b+1, epoch=epoch)
         time_end = time.time()
         print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, num_epochs, time_end - time_start))
