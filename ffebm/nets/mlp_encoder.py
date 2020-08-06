@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 
-class Proposal(nn.Module):
+class Encoder(nn.Module):
     """
     A MLP encoder in VAE
     """
@@ -28,6 +28,6 @@ class Proposal(nn.Module):
         q_sigma = self.q_log_sigma(h).exp()
         q_dist = Normal(q_mu, q_sigma)
         latents = q_dist.sample()
-        q_log_pdf = q_dist.log_prob(latents)
+        q_log_pdf = q_dist.log_prob(latents).sum(-1)
         return latents, q_log_pdf
             
