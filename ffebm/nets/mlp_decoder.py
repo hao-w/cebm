@@ -26,13 +26,13 @@ class Decoder(nn.Module):
                 self.prior_mu = self.prior_mu.cuda()
                 self.prior_sigma = self.prior_sigma.cuda()
         
-    def forward(self, latents, images, EPS=1e-9):
+    def forward(self, latents, images):
         recon = self.hidden(latents)
         p_log_pdf = Normal(self.prior_mu, self.prior_sigma).log_prob(latents).sum(-1)
-        ll = Bernoulli(recon+EPS).log_prob(images).sum(-1)
-#         ll = - self.binary_cross_entropy(recon, images)
+#         ll = Bernoulli(recon+EPS).log_prob(images).sum(-1)
+        ll = - self.binary_cross_entropy(recon, images)
         return p_log_pdf, recon, ll
             
-#     def binary_cross_entropy(self, x_mean, x, EPS=1e-9):
-#         return - (torch.log(x_mean + EPS) * x + 
-#                   torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1)
+    def binary_cross_entropy(self, x_mean, x, EPS=1e-9):
+        return - (torch.log(x_mean + EPS) * x + 
+                  torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1)
