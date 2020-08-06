@@ -29,5 +29,21 @@ def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_si
     else:
         regularize_term = 0
     return loss_theta, regularize_term
+
+
+def rws(enc, dec, images):
+    """
+    compute the EUBO in rws and the separate gradient w.r.t. phi and theta
+    """
+    trace = dict()
+    latents, q_log_pdf = enc(images)
+    p_log_pdf, recon, ll = dec(latents)
+    log_w = (ll + p_log_pdf - q_log_pdf).detach()
+    w = F.softmax(log_w, 0)
+    trace['loss_theta'] = (- w * ll).sum(0).mean()
+    trace['loss_phi'] = (- w * log_q_pdf).sum(0).mean()
+    trace['eubo'] = (w * log_w).sum(0).mean()
+    trace['ess'] = (1 / (w**2).sum(0)).mean()
+    return trace 
     
 

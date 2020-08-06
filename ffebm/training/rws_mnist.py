@@ -4,7 +4,7 @@ from ffebm.objectives import rws
 
 def train(optimizer, enc, dec, train_data, num_epochs, sample_size, batch_size, CUDA, DEVICE, SAVE_VERSION):
     """
-    training the energy based model (ebm) by maximizing the marginal likelihood
+    training the and encoder-decoder model using RWS
     """
     for epoch in range(num_epochs):
         time_start = time.time()
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     latent_dim = 10
     lr = 1 * 1e-4
     ## EBM hyper-parameters
-    SAVE_VERSION = 'mnist-vae-%.2Elr-%.2Elatentdim' % (lr, latent_dim) 
+    SAVE_VERSION = 'mnist-rws-%.2Elr-%.2Elatentdim' % (lr, latent_dim) 
     
     ## data directory
     print('Load MNIST dataset...')

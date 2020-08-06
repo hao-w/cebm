@@ -6,7 +6,6 @@ class Proposal(nn.Module):
     """
     A proposal for the energy based model
     """
-    
     def __init__(self, latent_dim):
         super(self.__class__, self).__init__()
         
