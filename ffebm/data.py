@@ -2,7 +2,7 @@ import os
 import torch
 from torchvision import datasets, transforms
 
-def load_mnist(DATA_DIR, batch_size, resize=None):
+def load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None):
     """
     load MNIST dataset
     """
@@ -10,15 +10,25 @@ def load_mnist(DATA_DIR, batch_size, resize=None):
         os.makedirs(DATA_DIR)
   
     if resize is not None:
-        transform = transforms.Compose([
-                transforms.Resize(resize),
-                transforms.CenterCrop(resize),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))]) 
+        if normalizing is not None:
+            transform = transforms.Compose([
+                    transforms.Resize(resize),
+                    transforms.CenterCrop(resize),
+                    transforms.ToTensor(),
+                    transforms.Normalize((normalizing,), (normalizing,))]) 
+        else:
+            transform = transforms.Compose([
+                    transforms.Resize(resize),
+                    transforms.CenterCrop(resize),
+                    transforms.ToTensor()])
     else:
-        transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))])         
+        if normalizing is not None:
+            transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize((normalizing,), (normalizing,))]) 
+        else:
+            transform = transforms.Compose([
+                    transforms.ToTensor()])    
 
     train_data = torch.utils.data.DataLoader(
                     datasets.MNIST(DATA_DIR, train=True, download=True,
