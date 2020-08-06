@@ -48,3 +48,13 @@ def rws(enc, dec, images):
     return trace 
     
 
+def vae(enc, dec, images):
+    """
+    compute the ELBO in vae
+    """
+    trace = dict()
+    latents, q_log_pdf = enc(images)
+    p_log_pdf, recon, ll = dec(latents, images)
+    log_w = (ll + p_log_pdf - q_log_pdf)
+    trace['elbo'] = log_w.mean()
+    return trace 
