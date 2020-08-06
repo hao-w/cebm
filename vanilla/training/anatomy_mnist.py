@@ -44,6 +44,7 @@ def logging(metrics, filename, average_normalizer, epoch):
 
     
 if __name__ == "__main__":
+    import pdb
     import torch
     from vanilla.data import load_mnist
     from vanilla.sgld import SGLD_sampler
