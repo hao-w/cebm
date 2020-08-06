@@ -40,3 +40,5 @@ def load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None):
                                    transform=transform),
                     batch_size=batch_size, shuffle=True) 
     return train_data, test_data
+
+    
