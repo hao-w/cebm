@@ -1,3 +1,0 @@
-Epoch=1, loss_theta=-1.48031e+16,  loss_phi=5.43022e+02
-Epoch=2, loss_theta=-3.17843e+20,  loss_phi=5.41993e+02
-Epoch=3, loss_theta=-2.37290e+22,  loss_phi=5.38486e+02
