@@ -21,7 +21,7 @@ def train(optimizer, enc, dec, train_data, num_epochs, sample_size, batch_size, 
         torch.save(enc.state_dict(), "../weights/rws-mlp-enc-%s" % SAVE_VERSION)
         torch.save(dec.state_dict(), "../weights/rws-mlp-dec-%s" % SAVE_VERSION)
         for key in trace.keys():
-            if key not in metrics.keys():
+            if key not in metrics:
                 metrics[key] = trace[key].detach()
             else:
                 metrics[key] += trace[key].detach()
@@ -34,7 +34,7 @@ def logging(metrics, filename, average_normalizer, epoch):
         log_file = open('../results/log-' + filename + '.txt', 'w+')
     else:
         log_file = open('../results/log-' + filename + '.txt', 'a+')
-    metrics_print = ",  ".join(['%s=%.5e' % (k, v / average_normalizer) for k, v in metrics.items()])
+    metrics_print = ",  ".join(['%s=%.3e' % (k, v / average_normalizer) for k, v in metrics.items()])
     print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
     log_file.close()
     
