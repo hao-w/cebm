@@ -28,7 +28,7 @@ def train(optimizer, ebm, proposal, data_noise_sampler, train_data, num_epochs, 
                     metrics[key] = trace[key].detach()
                 else:
                     metrics[key] += trace[key].detach()        
-        torch.save(ef.state_dict(), "../weights/ebm-%s" % SAVE_VERSION)
+        torch.save(ebm.state_dict(), "../weights/ebm-%s" % SAVE_VERSION)
         torch.save(proposal.state_dict(), "../weights/proposal-%s" % SAVE_VERSION)
         logging(metrics=metrics, filename=SAVE_VERSION, average_normalizer=b+1, epoch=epoch)
         time_end = time.time()
