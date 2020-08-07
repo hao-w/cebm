@@ -1,18 +1,19 @@
 import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
-from sebm.ffebm.gaussian_params import params_to_nats, nats_to_params
+from ffebm.gaussian_params import params_to_nats, nats_to_params
+import math
 
 class Energy_function(nn.Module):
     """
     An energy based model that assumes a fully-factorized manner
+    with one CNN layer
     neural_ss1 : t(x) w.r.t. the first natural parameter
     """
-    def __init__(self, CUDA, DEVICE, in_channel=1, out_channel=32, negative_slope=0.05, optimize_priors=False):
+    def __init__(self, out_channel, CUDA, DEVICE, optimize_priors=False):
         super(self.__class__, self).__init__()
         self.neural_ss1 = nn.Sequential(
-            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope))
+            nn.Conv2d(1, out_channel, kernel_size=3, stride=1))
         
         
         self.prior_nat1 = torch.zeros(out_channel)
@@ -26,39 +27,86 @@ class Energy_function(nn.Module):
             self.prior_nat1 = nn.Parameter(self.prior_nat1)
             self.prior_nat2 = nn.Parameter(self.prior_nat2)
             
-    def forward(self, images):
+    def forward(self, images, dist=None):
         """
-        Encode the images and compute the energy function
+        Encode the images into some neural sufficient statistics
+        of size B * latent_dim * P * P (data distribution)
+        or
+        of size S * B * latent_dim * P * P (model distritbution)
         """
-        neural_ss1 = self.neural_ss1(images)  
-        B, C, H, W = neural_ss1.shape
-        neural_ss1_flat = neural_ss1.view(B, C, H*W) # B * C * P 
-        Ex = self.energy(prior_nat1=self.prior_nat1.repeat(1, H*W),
-                         prior_nat2=self.prior_nat2.repeat(1, H*W),
-                         posterior_nat1=self.prior_nat1.repeat(1, H*W) + neural_ss1_flat,
-                         posterior_nat2=self.prior_nat2.repeat(1, H*W))
-        return Ex # B * C * P
+        if dist == 'data':
+            return self.neural_ss1(images)  
+        elif dist == 'ebm':
+            S, B, P, _, patch_dim2 = images.shape
+            patch_dim = int(math.sqrt(patch_dim2))
+            images = images.view(S*B*P*P, patch_dim2).view(S*B*P*P, patch_dim, patch_dim).unsqueeze(1)
+            return self.neural_ss1(images).squeeze(-1).squeeze(-1).view(S, B, P, P, -1).permute(0, 1, 4, 2, 3)
+        else:
+            raise ValueError
         
-#     def prior_log_pdf(self, samples=None):
-#         prior_mu, prior_sigma = nats_to_params(self.prior_nat1, self.prior_nat2)
-#         prior_dist = Normal(prior_mu, prior_sigma)
-#         if samples is None:         
-#             raise NotImplementedError
-#         else:
-#             return prior_dist.log_prob(samples) # size  C * P
-        
+    def sample_priors(self, sample_size, batch_size, num_patches):
+        """
+        return samples from prior of size S * B * P * P * latent_dim
+        and log_prob of size S * B * patch_size * patch_size
+        """
+        prior_mu, prior_sigma = nats_to_params(self.prior_nat1, self.prior_nat2)
+        prior_dist = Normal(prior_mu, prior_sigma)       
+        latents = prior_dist.sample((sample_size, batch_size, num_patches, num_patches, ))
+        return latents, prior_dist.log_prob(latents).sum(-1)
+
+#     def sample_posterior(self, batch_size, num_patches):
+#         """
+#         return samples from posterior of size S * B * num_patches * latent_dim
+#         and log_prob of size S * B * num_patches
+#         """
+#         posterior_nat1=self.prior_nat1.repeat(1, num_patches) + neural_ss1_flat,
+#         posterior_nat2=self.prior_nat2.repeat(1, num_patches).repeat(batch_size, 1, 1)
+#         posterior_mu, posterior_sigma = nats_to_params(posterior_nat1, posterior_nat2)
+#         posterior_dist = Normal(posterior_mu, posterior_sigma)       
+#         latents = posterior_dist.sample()
+#         return latents, posterior_dist.log_prob(latents).sum(1)
+    
     def normal_log_partition(self, nat1, nat2):
         """
         compute the log partition of a normal distribution
         """
         return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()          
     
-    def energy(self, prior_nat1, prior_nat2, posterior_nat1, posterior_nat2):
+    def energy(self, neural_ss1, dist=None):
         """
-        compute the energy function that is defined as
+        compute the energy function w.r.t. either data distribution 
+        or model distribution
+        that is defined as
         logA(\lambda) - logA(t(x) + \lambda)
-        """
-        logA_prior = normal_log_partition(prior_nat1, prior_nat2) 
-        logA_posterior = normal_log_partition(posterior_nat1, posterior_nat2)
-        return logA_prior - logA_posterior
+        Ex of the size B * P * P
         
+        argument: dist = 'data' or 'ebm'
+        """
+        if dist == 'data':
+            B, latent_dim, H, W = neural_ss1.shape
+        elif dist == 'ebm':
+            S, B, latent_dim, H, W = neural_ss1.shape
+        else:
+            raise ValueError
+        prior_nat1 = self.prior_nat1.unsqueeze(-1).repeat(1, H).unsqueeze(-1).repeat(1, 1, W)
+        prior_nat2 = self.prior_nat2.unsqueeze(-1).repeat(1, H).unsqueeze(-1).repeat(1, 1, W) # latent_dim * P * P
+        posterior_nat1 = prior_nat1 + neural_ss1
+        posterior_nat2 = prior_nat2 # latent_dim * P * P      
+        logA_prior = self.normal_log_partition(prior_nat1, prior_nat2)
+        logA_posterior = self.normal_log_partition(posterior_nat1, posterior_nat2)
+        assert logA_prior.shape == (latent_dim, H, W), 'ERROR!'
+        if dist == 'data':
+            assert logA_posterior.shape == (B, latent_dim, H, W), 'ERROR!'
+            return logA_prior.sum(0) - logA_posterior.sum(1)
+        if dist == 'ebm':
+            assert logA_posterior.shape == (S, B, latent_dim, H, W), 'ERROR!'
+            return logA_prior.sum(0) - logA_posterior.sum(2)
+    
+    def log_factor(self, neural_ss1, latents):
+        """
+        compute the log heuristic factor for the EBM
+        log factor of size S * B * H * W
+        """
+        S, B, latent_dim, H, W = neural_ss1.shape
+        assert latents.shape == (S, B, H, W, latent_dim), 'ERROR!'
+        return (neural_ss1 * latents.permute(0, 1, 4, 2, 3)).sum(2)
