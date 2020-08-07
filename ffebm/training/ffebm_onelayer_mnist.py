@@ -39,7 +39,7 @@ def logging(metrics, filename, average_normalizer, epoch):
         log_file = open('../results/log-' + filename + '.txt', 'w+')
     else:
         log_file = open('../results/log-' + filename + '.txt', 'a+')
-    metrics_print = ",  ".join(['%s=%.5e' % (k, v / average_normalizer) for k, v in metrics.items()])
+    metrics_print = ",  ".join(['%s=%.3e' % (k, v / average_normalizer) for k, v in metrics.items()])
     print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
     log_file.close()
     
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     num_patches = mnist_size - patch_size + 1
     lr = 1 * 1e-4
     ## EBM hyper-parameters
-    data_noise_std = 0.0
+    data_noise_std = 1.5e-2
     reg_alpha = 0.0
     SAVE_VERSION = 'mnist-ffebm-1layer-%.2Elr-%.2Elatentdim-%.2Eregalpha-%.2Edata_noise_std' % (lr, latent_dim, reg_alpha, data_noise_std) 
     
