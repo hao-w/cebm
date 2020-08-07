@@ -74,7 +74,7 @@ if __name__ == "__main__":
     
     ## data directory
     print('Load MNIST dataset...')
-    DATA_DIR = '/home/hao/Research/sebm_data/'
+    DATA_DIR = '../../../sebm_data/'
     train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None)
     
     print('Initialize EBM, proposal and optimizer...')
