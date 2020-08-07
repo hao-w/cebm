@@ -26,6 +26,8 @@ def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize
     trace['ess'] = (1 / (w**2).sum(0)).mean()
     trace['loss_theta'] = (energy_data -  (w * energy_ebm).sum(0)).sum(-1).sum(-1).mean()
     trace['loss_phi'] = (w * ( - ll)).sum(0).sum(-1).sum(-1).mean()
+    trace['energy_data'] = energy_data.sum(-1).sum(-1).mean().detach()
+    trace['energy_ebm'] = (w * energy_ebm).sum(0).sum(-1).sum(-1).mean().detach()
 #     loss = energy_data.sum(-1).sum(-1).mean() - energy_ebm.sum(-1).sum(-1).mean()
 #     if regularize_alpha is not None:
 #         regularize_term = regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
