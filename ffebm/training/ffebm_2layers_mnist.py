@@ -29,7 +29,7 @@ def train(optimizer, ebms, proposals, train_data, num_epochs, sample_size, batch
                     metrics[key] = trace[key].detach()
                 else:
                     metrics[key] += trace[key].detach()   
-            print('pass!')
+#            print('pass!')
         torch.save(ebm1.state_dict(), "../weights/ebm1-%s" % SAVE_VERSION)
         torch.save(proposal1.state_dict(), "../weights/proposal1-%s" % SAVE_VERSION)
         torch.save(ebm2.state_dict(), "../weights/ebm2-%s" % SAVE_VERSION)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:1')
+        DEVICE = torch.device('cuda:0')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
 
     num_epochs = 1000
