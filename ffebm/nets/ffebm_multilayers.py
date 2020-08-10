@@ -7,13 +7,13 @@ import math
 class Energy_function(nn.Module):
     """
     An energy based model that assumes a fully-factorized manner
-    with one CNN layer
+    with multiple layers till the images is encoded into a scalar value
     neural_ss1 : t(x) w.r.t. the first natural parameter
     """
-    def __init__(self, out_channel, CUDA, DEVICE, optimize_priors=False):
+    def __init__(self, in_channel, out_channel, kernel_size, stride, padding, CUDA, DEVICE, optimize_priors=False):
         super(self.__class__, self).__init__()
         self.neural_ss1 = nn.Sequential(
-            nn.Conv2d(1, out_channel, kernel_size=3, stride=1))
+            nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size, stride=stride, padding=padding))
         
         
         self.prior_nat1 = torch.zeros(out_channel)
@@ -37,10 +37,10 @@ class Energy_function(nn.Module):
         if dist == 'data':
             return self.neural_ss1(images)  
         elif dist == 'ebm':
-            S, B, P, _, patch_dim2 = images.shape
+            S, B, P, _, in_channel, patch_dim2 = images.shape
 #             images = (images - 0.5) / 0.5
             patch_dim = int(math.sqrt(patch_dim2))
-            images = images.view(S*B*P*P, patch_dim2).view(S*B*P*P, patch_dim, patch_dim).unsqueeze(1)
+            images = images.view(S*B*P*P, in_channel, patch_dim2).view(S*B*P*P, in_channel, patch_dim, patch_dim)
             return self.neural_ss1(images).squeeze(-1).squeeze(-1).view(S, B, P, P, -1).permute(0, 1, 4, 2, 3)
         else:
             raise ValueError
@@ -55,18 +55,6 @@ class Energy_function(nn.Module):
         latents = prior_dist.sample((sample_size, batch_size, num_patches, num_patches, ))
         return latents, prior_dist.log_prob(latents).sum(-1)
 
-#     def sample_posterior(self, batch_size, num_patches):
-#         """
-#         return samples from posterior of size S * B * num_patches * latent_dim
-#         and log_prob of size S * B * num_patches
-#         """
-#         posterior_nat1=self.prior_nat1.repeat(1, num_patches) + neural_ss1_flat,
-#         posterior_nat2=self.prior_nat2.repeat(1, num_patches).repeat(batch_size, 1, 1)
-#         posterior_mu, posterior_sigma = nats_to_params(posterior_nat1, posterior_nat2)
-#         posterior_dist = Normal(posterior_mu, posterior_sigma)       
-#         latents = posterior_dist.sample()
-#         return latents, posterior_dist.log_prob(latents).sum(1)
-    
     def normal_log_partition(self, nat1, nat2):
         """
         compute the log partition of a normal distribution

@@ -1,5 +1,72 @@
 import torch.nn.functional as F
 
+def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patches, regularize_alpha):
+    """
+    objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
+    or maximzie the likelihood:
+    '''
+    -\nabla_\theta E_{p^{DATA}(x)} [\log \frac{p^{DATA} (x)}{p_\theta (x)}]
+    = \nabla_\theta E_{p^{DATA}(x)} [-E_\theta(x) - \log Z_\theta]
+    = - \nabla_\theta (E_{p^{DATA}(x)} [E_\theta(x)] - E_{p_\theta(x)}[E(x)])
+    '''
+    we train a proposal to get samples from ebm
+    """ 
+    trace = dict()
+    (ebm1, ebm2, ebm3) = ebms
+    (proposal1, proposal2, proposal3) = proposals
+    (p1, p2, p3) = num_patches
+    # first layer
+    batch_size, C, pixels_size, _ = data_images.shape
+    neural_ss1_data1 = ebm1.forward(data_images, dist='data')
+    energy_data1 = ebm1.energy(neural_ss1_data1, dist='data')
+    # compute the expectation w.r.t. ebm distribut5tion
+    latents1, _ = ebm1.sample_priors(sample_size, batch_size, num_patches=p1)
+    images_ebm1, ll1 = proposal1(latents1)
+    nerual_ss1_ebm1 = ebm1.forward(images_ebm1, dist='ebm')
+    energy_ebm1 = ebm1.energy(nerual_ss1_ebm1, dist='ebm')
+    log_factor_ebm1 = ebm1.log_factor(nerual_ss1_ebm1, latents1)
+    w1 = F.softmax(log_factor_ebm1 - ll1, 0).detach()
+    trace['ess1'] = (1 / (w1**2).sum(0)).mean()
+    trace['loss_theta1'] = (energy_data1 -  (w1 * energy_ebm1).sum(0)).sum(-1).sum(-1).mean()
+    trace['loss_phi1'] = (w1 * ( - ll1)).sum(0).sum(-1).sum(-1).mean()
+    trace['energy_data1'] = energy_data1.sum(-1).sum(-1).mean().detach()
+    trace['energy_ebm1'] = (w1 * energy_ebm1).sum(0).sum(-1).sum(-1).mean().detach()
+    
+    # second layer
+    batch_size, C, pixels_size, _ = neural_ss1_data1.shape
+    neural_ss1_data2 = ebm2.forward(neural_ss1_data1, dist='data')
+    energy_data2 = ebm2.energy(neural_ss1_data2, dist='data')
+    # compute the expectation w.r.t. ebm distribut5tion
+    latents2, _ = ebm2.sample_priors(sample_size, batch_size, num_patches=p2)
+    images_ebm2, ll2 = proposal2(latents2)
+    nerual_ss1_ebm2 = ebm2.forward(images_ebm2, dist='ebm')
+    energy_ebm2 = ebm2.energy(nerual_ss1_ebm2, dist='ebm')
+    log_factor_ebm2 = ebm2.log_factor(nerual_ss1_ebm2, latents2)
+    w2 = F.softmax(log_factor_ebm2 - ll2, 0).detach()
+    trace['ess2'] = (1 / (w2**2).sum(0)).mean()
+    trace['loss_theta2'] = (energy_data2 -  (w2 * energy_ebm2).sum(0)).sum(-1).sum(-1).mean()
+    trace['loss_phi2'] = (w2 * ( - ll2)).sum(0).sum(-1).sum(-1).mean()
+    trace['energy_data2'] = energy_data2.sum(-1).sum(-1).mean().detach()
+    trace['energy_ebm2'] = (w2 * energy_ebm2).sum(0).sum(-1).sum(-1).mean().detach()
+    
+    # third layer
+    batch_size, C, pixels_size, _ = neural_ss1_data2.shape
+    neural_ss1_data3 = ebm3.forward(neural_ss1_data2, dist='data')
+    energy_data3 = ebm3.energy(neural_ss1_data3, dist='data')
+    # compute the expectation w.r.t. ebm distribut5tion
+    latents3, _ = ebm3.sample_priors(sample_size, batch_size, num_patches=p3)
+    images_ebm3, ll3 = proposal3(latents3)
+    nerual_ss1_ebm3 = ebm3.forward(images_ebm3, dist='ebm')
+    energy_ebm3 = ebm3.energy(nerual_ss1_ebm3, dist='ebm')
+    log_factor_ebm3 = ebm3.log_factor(nerual_ss1_ebm3, latents3)
+    w3 = F.softmax(log_factor_ebm3 - ll3, 0).detach()
+    trace['ess3'] = (1 / (w3**2).sum(0)).mean()
+    trace['loss_theta3'] = (energy_data3 -  (w3 * energy_ebm3).sum(0)).sum(-1).sum(-1).mean()
+    trace['loss_phi3'] = (w3 * ( - ll3)).sum(0).sum(-1).sum(-1).mean()
+    trace['energy_data3'] = energy_data3.sum(-1).sum(-1).mean().detach()
+    trace['energy_ebm3'] = (w3 * energy_ebm3).sum(0).sum(-1).sum(-1).mean().detach()
+    return trace
+
 def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize_alpha):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
