@@ -22,14 +22,17 @@ def train(optimizer, ebms, proposals, train_data, num_epochs, sample_size, batch
 #                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
 #                 images = images + data_noise
             trace = marginal_kl_multilayers(ebms, proposals, images, sample_size, num_patches, reg_alpha)
-            (trace['loss_phi1']+trace['loss_theta1']+trace['loss_phi2']+trace['loss_theta2']+trace['loss_phi3']+trace['loss_theta3']).backward()
+            loss = trace['loss_phi1']+trace['loss_theta1']+trace['loss_phi2']+trace['loss_theta2']+trace['loss_phi3']+trace['loss_theta3']
+            if reg_alpha != 0.0:
+                loss = loss + trace['regularize_term1'] + trace['regularize_term2'] + trace['regularize_term3']
+            loss.backward()
             optimizer.step()
             for key in trace.keys():
                 if key not in metrics:
                     metrics[key] = trace[key].detach()
                 else:
                     metrics[key] += trace[key].detach()   
-#            print('pass!')
+           # print('pass!')
         torch.save(ebm1.state_dict(), "../weights/ebm1-%s" % SAVE_VERSION)
         torch.save(proposal1.state_dict(), "../weights/proposal1-%s" % SAVE_VERSION)
         torch.save(ebm2.state_dict(), "../weights/ebm2-%s" % SAVE_VERSION)
@@ -61,7 +64,7 @@ if __name__ == "__main__":
     
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:0')
+        DEVICE = torch.device('cuda:1')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
 
     num_epochs = 1000
@@ -81,8 +84,8 @@ if __name__ == "__main__":
     lr = 5 * 1e-4
     ## EBM hyper-parameters
     data_noise_std = 1.5e-2
-    reg_alpha = 0.0
-    SAVE_VERSION = 'mnist-ffebm-2layers'
+    reg_alpha = 0.01
+    SAVE_VERSION = 'mnist-ffebm-2layers-reg_alpha=%.2E' % reg_alpha
     
     ## data directory
     print('Load MNIST dataset...')

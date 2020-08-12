@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patches, regularize_alpha):
+def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patches, reg_alpha):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -31,7 +31,9 @@ def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patch
     trace['loss_phi1'] = (w1 * ( - ll1)).sum(0).sum(-1).sum(-1).mean()
     trace['energy_data1'] = energy_data1.sum(-1).sum(-1).mean().detach()
     trace['energy_ebm1'] = (w1 * energy_ebm1).sum(0).sum(-1).sum(-1).mean().detach()
-    
+    if reg_alpha != 0.0:
+        trace['regularize_term1'] = reg_alpha * ((energy_data1**2).sum(-1).sum(-1).mean() + (energy_ebm1**2).sum(-1).sum(-1).mean())
+        
     # second layer
     batch_size, C, pixels_size, _ = neural_ss1_data1.shape
     neural_ss1_data2 = ebm2.forward(neural_ss1_data1, dist='data')
@@ -48,7 +50,9 @@ def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patch
     trace['loss_phi2'] = (w2 * ( - ll2)).sum(0).sum(-1).sum(-1).mean()
     trace['energy_data2'] = energy_data2.sum(-1).sum(-1).mean().detach()
     trace['energy_ebm2'] = (w2 * energy_ebm2).sum(0).sum(-1).sum(-1).mean().detach()
-    
+    if reg_alpha != 0.0:
+        trace['regularize_term2'] = reg_alpha * ((energy_data2**2).sum(-1).sum(-1).mean() + (energy_ebm2**2).sum(-1).sum(-1).mean())
+        
     # third layer
     batch_size, C, pixels_size, _ = neural_ss1_data2.shape
     neural_ss1_data3 = ebm3.forward(neural_ss1_data2, dist='data')
@@ -65,6 +69,8 @@ def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patch
     trace['loss_phi3'] = (w3 * ( - ll3)).sum(0).sum(-1).sum(-1).mean()
     trace['energy_data3'] = energy_data3.sum(-1).sum(-1).mean().detach()
     trace['energy_ebm3'] = (w3 * energy_ebm3).sum(0).sum(-1).sum(-1).mean().detach()
+    if reg_alpha != 0.0:
+        trace['regularize_term3'] = reg_alpha * ((energy_data3**2).sum(-1).sum(-1).mean() + (energy_ebm3**2).sum(-1).sum(-1).mean())
     return trace
 
 def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize_alpha):

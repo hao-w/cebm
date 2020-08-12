@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.distributions.bernoulli import Bernoulli
+from torch.distributions.normal import Normal
 import math
 
 class Proposal(nn.Module):
@@ -14,9 +14,14 @@ class Proposal(nn.Module):
             nn.Linear(latent_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, int(2*hidden_dim)),
-            nn.ReLU(),
+            nn.ReLU())
+        
+        self.q_mean = nn.Sequential(
             nn.Linear(int(2*hidden_dim), pixel_dim*in_channel),
-            nn.Sigmoid())
+            nn.Tanh())
+        
+        self.q_log_std = nn.Linear(int(2*hidden_dim), pixel_dim*in_channel)
+
         self.in_channel = in_channel
         self.pixel_dim = pixel_dim
         
@@ -26,8 +31,10 @@ class Proposal(nn.Module):
         images of size S * B * P * P * (in_channel*patch_dim2)
         ll of size S * B * P * P 
         """
-        images_mean = self.hidden(latents)
-        images_dist = Bernoulli(images_mean)
+        h = self.hidden(latents)
+        q_mean = self.q_mean(h)
+        q_std = self.q_log_std(h).exp()
+        images_dist = Normal(q_mean, q_std)
         images = images_dist.sample()
         ll = images_dist.log_prob(images).sum(-1)
         S, B, P, _, _ = images.shape
