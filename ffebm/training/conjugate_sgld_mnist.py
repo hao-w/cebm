@@ -109,9 +109,9 @@ if __name__ == "__main__":
     import torch
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:1')
+        DEVICE = torch.device('cuda:0')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
-    DNSs = [1e-2, 2e-2, 3e-2, 4e-2, 5e-2]
+    DNSs = [3e-2, 1e-2, 5e-3, 1e-3]
     SGLDNSs = [1e-2, 7.5e-3, 5e-3, 2.5e-3]
     REGs = [0.0, 1e-2, 5e-2, 1e-1]
     for i in DNSs:
