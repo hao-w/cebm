@@ -65,15 +65,15 @@ if __name__ == "__main__":
 
     num_epochs = 1000
     batch_size = 100
-    sample_size = 10
+    sample_size = 50
     latent_dim = 10
     hidden_dim = 128
     mnist_size = 28
     patch_size1 = 4
     lr = 1 * 1e-4
     ## EBM hyper-parameters
-    data_noise_std = 1.5e-2
-    reg_alpha = 0.0
+    data_noise_std = 0.0
+    reg_alpha = 0.05
     SAVE_VERSION = 'mnist-ffebm-1layer-reg_alpha=%.2E' % reg_alpha
     training_schedule = 5
     ## data directory

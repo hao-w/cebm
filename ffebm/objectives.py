@@ -145,7 +145,7 @@ def ae(enc, dec, images):
     return trace 
 
 
-def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, reg_alpha):
+def mle(ebm, sgld_sampler, sgld_num_steps, data_images, reg_alpha):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -159,27 +159,21 @@ def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_si
     trace = dict()
     # compute the expectation w.r.t. data distribution
     batch_size, C, pixels_size, _ = data_images.shape
-    neural_ss1_data = ebm.forward(data_images, dist='data')
-    energy_data = ebm.energy(neural_ss1_data, dist='data')
+    neural_ss1_data = ebm.forward(data_images)
+    energy_data = ebm.energy(neural_ss1_data)
 
-    images_ebm = sgld_sampler.sgld_update(ef=ef, 
+    images_ebm = sgld_sampler.sgld_update(ebm=ebm, 
                                           batch_size=batch_size, 
                                           pixels_size=pixels_size, 
                                           num_steps=sgld_num_steps, 
-                                          step_size=sgld_step_size,
-                                          buffer_size=buffer_size,
-                                          buffer_percent=buffer_percent,
                                           persistent=True)
     
-    nerual_ss1_ebm = ebm.forward(images_ebm, dist='ebm')
-    energy_ebm = ebm.energy(nerual_ss1_ebm, dist='ebm')
-    trace['loss_theta'] = (energy_data - energy_ebm).sum(-1).sum(-1).mean()
-    trace['energy_data'] = energy_data.sum(-1).sum(-1).mean().detach()
-    trace['energy_ebm'] = (w * energy_ebm).sum(0).sum(-1).sum(-1).mean().detach()
+    nerual_ss1_ebm = ebm.forward(images_ebm)
+    energy_ebm = ebm.energy(nerual_ss1_ebm)
+    trace['loss_theta'] = (energy_data - energy_ebm).mean()
+    trace['energy_data'] = energy_data.mean().detach()
+    trace['energy_ebm'] = energy_ebm.mean().detach()
     if reg_alpha != 0.0:
-        trace['regularize_term'] = reg_alpha * ((energy_data**2).sum(-1).sum(-1).mean() + (energy_ebm**2).sum(-1).sum(-1).mean())
+        trace['regularize_term'] = reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
     return trace
-
-    energy_ebm = ef.forward(ebm_images)
-    return energy_data, energy_ebm
     
