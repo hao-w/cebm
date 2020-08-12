@@ -53,13 +53,6 @@ def grid_search_training(num_epochs, batch_size, latent_dim, lr, data_noise_std,
   
     mnist_size = 28
     ## EBM hyper-parameters
-    data_noise_std = 3e-2
-    sgld_noise_std = 7.5e-3
-    sgld_step_size = 1
-    sgld_num_steps = 5
-    buffer_size = 5000
-    buffer_percent = 0.95
-    reg_alpha = 0.01
     SAVE_VERSION = 'mnist-conjugate_sgld-lr=%.2E-data_noise_std=%.2E-sgld_noise_std=%.2E-sgld_step_size=%.2E-sgld_num_steps=%.2E-buffer_size=%d-buffer_percent=%.2f-reg_alpha=%.2E' % (lr, data_noise_std, sgld_noise_std, sgld_step_size, sgld_num_steps, buffer_size, buffer_percent,reg_alpha)
     ## data directory
     print('Load MNIST dataset...')
@@ -126,7 +119,7 @@ if __name__ == "__main__":
                                      sgld_noise_std=j, 
                                      sgld_step_size=1, 
                                      sgld_num_steps=50, 
-                                     buffer_size=5000, 
+                                     buffer_size=1000, 
                                      buffer_percent=0.95, 
                                      reg_alpha=k, 
                                      CUDA=CUDA, 
