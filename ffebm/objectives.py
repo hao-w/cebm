@@ -97,12 +97,12 @@ def marginal_kl_1layer(ebm, proposal, data_images, sample_size, reg_alpha):
     log_factor_ebm = ebm.log_factor(nerual_ss1_ebm, latents)
     w = F.softmax(log_factor_ebm - ll, 0).detach()
     trace['ess'] = (1 / (w**2).sum(0)).mean()
-    trace['loss_theta'] = (energy_data -  (w * energy_ebm).sum(0)).sum(-1).sum(-1).mean()
-    trace['loss_phi'] = (w * ( - ll)).sum(0).sum(-1).sum(-1).mean()
-    trace['energy_data'] = energy_data.sum(-1).sum(-1).mean().detach()
-    trace['energy_ebm'] = (w * energy_ebm).sum(0).sum(-1).sum(-1).mean().detach()
+    trace['loss_theta'] = (energy_data -  (w * energy_ebm).sum(0)).mean()
+    trace['loss_phi'] = (w * ( - ll)).sum(0).mean()
+    trace['energy_data'] = energy_data.mean().detach()
+    trace['energy_ebm'] = (w * energy_ebm).sum(0).mean().detach()
     if reg_alpha != 0.0:
-        trace['regularize_term'] = reg_alpha * ((energy_data**2).sum(-1).sum(-1).mean() + (energy_ebm**2).sum(-1).sum(-1).mean())
+        trace['regularize_term'] = reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
     return trace
 
 
@@ -143,3 +143,43 @@ def ae(enc, dec, images):
     recon, ll = dec(latents, images)
     trace['loss'] = - ll.mean()
     return trace 
+
+
+def mle(ef, sgld_sampler, data_images, sgld_num_steps, sgld_step_size, buffer_size, buffer_percent, reg_alpha):
+    """
+    objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
+    or maximzie the likelihood:
+    '''
+    -\nabla_\theta E_{p^{DATA}(x)} [\log \frac{p^{DATA} (x)}{p_\theta (x)}]
+    = \nabla_\theta E_{p^{DATA}(x)} [-E_\theta(x) - \log Z_\theta]
+    = - \nabla_\theta (E_{p^{DATA}(x)} [E_\theta(x)] - E_{p_\theta(x)}[E(x)])
+    '''
+    we acquire samples from ebm using stochastic gradient langevin dynamics
+    """ 
+    trace = dict()
+    # compute the expectation w.r.t. data distribution
+    batch_size, C, pixels_size, _ = data_images.shape
+    neural_ss1_data = ebm.forward(data_images, dist='data')
+    energy_data = ebm.energy(neural_ss1_data, dist='data')
+
+    images_ebm = sgld_sampler.sgld_update(ef=ef, 
+                                          batch_size=batch_size, 
+                                          pixels_size=pixels_size, 
+                                          num_steps=sgld_num_steps, 
+                                          step_size=sgld_step_size,
+                                          buffer_size=buffer_size,
+                                          buffer_percent=buffer_percent,
+                                          persistent=True)
+    
+    nerual_ss1_ebm = ebm.forward(images_ebm, dist='ebm')
+    energy_ebm = ebm.energy(nerual_ss1_ebm, dist='ebm')
+    trace['loss_theta'] = (energy_data - energy_ebm).sum(-1).sum(-1).mean()
+    trace['energy_data'] = energy_data.sum(-1).sum(-1).mean().detach()
+    trace['energy_ebm'] = (w * energy_ebm).sum(0).sum(-1).sum(-1).mean().detach()
+    if reg_alpha != 0.0:
+        trace['regularize_term'] = reg_alpha * ((energy_data**2).sum(-1).sum(-1).mean() + (energy_ebm**2).sum(-1).sum(-1).mean())
+    return trace
+
+    energy_ebm = ef.forward(ebm_images)
+    return energy_data, energy_ebm
+    

@@ -2,7 +2,7 @@ import torch
 import time
 from ffebm.objectives import marginal_kl_1layer
 
-def train(optimizer, ebm, proposal, train_data, num_epochs, sample_size, batch_size, reg_alpha, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ebm, proposal, train_data, training_schedule, num_epochs, sample_size, batch_size, reg_alpha, CUDA, DEVICE, SAVE_VERSION):
     """
     training an energy based model (ebm) and a proposal jointly
     by sampling z from the conjugate posterior.
@@ -19,10 +19,14 @@ def train(optimizer, ebm, proposal, train_data, num_epochs, sample_size, batch_s
                 data_noise = data_noise_sampler.sample(batch_size, 28)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
                 images = images + data_noise
-            trace = marginal_kl_1layer(ebm, proposal, images, sample_size, reg_alpha)
-            loss = trace['loss_phi']+trace['loss_theta']
-            if reg_alpha != 0.0:
-                loss = loss + trace['regularize_term']
+            if (training_schedule is None) or (b % training_schedule == 0):
+                trace = marginal_kl_1layer(ebm, proposal, images, sample_size, reg_alpha)
+                loss = trace['loss_phi']+trace['loss_theta']
+                if reg_alpha != 0.0:
+                    loss = loss + trace['regularize_term']   
+            else:
+                trace = marginal_kl_1layer(ebm, proposal, images, sample_size, reg_alpha)
+                loss = trace['loss_phi']
             loss.backward()
             optimizer.step()
             for key in trace.keys():
@@ -56,7 +60,7 @@ if __name__ == "__main__":
     from ffebm.nets.proposal_onelayer import Proposal
     CUDA = torch.cuda.is_available()
     if CUDA:
-        DEVICE = torch.device('cuda:0')
+        DEVICE = torch.device('cuda:1')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
 
     num_epochs = 1000
@@ -69,13 +73,13 @@ if __name__ == "__main__":
     lr = 1 * 1e-4
     ## EBM hyper-parameters
     data_noise_std = 1.5e-2
-    reg_alpha = 0.01
+    reg_alpha = 0.0
     SAVE_VERSION = 'mnist-ffebm-1layer-reg_alpha=%.2E' % reg_alpha
-    
+    training_schedule = 5
     ## data directory
     print('Load MNIST dataset...')
     DATA_DIR = '../../../sebm_data/'
-    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=0.5, resize=None)
+    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None)
     
     print('Initialize EBM, proposal and optimizer...')
     ebm1 = Energy_function(latent_dim=latent_dim, CUDA=CUDA, DEVICE=DEVICE)
@@ -100,6 +104,7 @@ if __name__ == "__main__":
           ebm=ebm1, 
           proposal=proposal1,
           train_data=train_data, 
+          training_schedule=training_schedule,
           num_epochs=num_epochs,
           sample_size=sample_size,
           batch_size=batch_size,
