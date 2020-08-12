@@ -1,35 +1,38 @@
 import torch
 import time
-from ffebm.objectives import marginal_kl
+from ffebm.objectives import marginal_kl_1layer
 
-def train(optimizer, ebm, proposal, data_noise_sampler, train_data, num_epochs, sample_size, batch_size, num_patches, reg_alpha, mnist_size, CUDA, DEVICE, SAVE_VERSION):
+def train(optimizer, ebm, proposal, train_data, num_epochs, sample_size, batch_size, reg_alpha, CUDA, DEVICE, SAVE_VERSION):
     """
     training an energy based model (ebm) and a proposal jointly
     by sampling z from the conjugate posterior.
     """
     for epoch in range(num_epochs):
         time_start = time.time()
-        metrics = {'loss_theta' : 0.0, 'loss_phi' : 0.0, 'ess' : 0.0}
+        metrics = dict()
         for b, (images, _) in enumerate(train_data):
-            pixels_size = images.shape[-1]
-            batch_size = images.shape[0]
+
             optimizer.zero_grad()
             if CUDA:
                 images = images.cuda().to(DEVICE)
             if data_noise_sampler is not None: ## add Gaussian noise to true data images
-                data_noise = data_noise_sampler.sample(batch_size, mnist_size)
+                data_noise = data_noise_sampler.sample(batch_size, 28)
                 assert images.shape == data_noise.shape, "ERROR! data noise have unexpected shape."
                 images = images + data_noise
-            trace = marginal_kl(ebm, proposal, images, sample_size, num_patches, reg_alpha)
-            (trace['loss_phi']+trace['loss_theta']).backward()
+            trace = marginal_kl_1layer(ebm, proposal, images, sample_size, reg_alpha)
+            loss = trace['loss_phi']+trace['loss_theta']
+            if reg_alpha != 0.0:
+                loss = loss + trace['regularize_term']
+            loss.backward()
             optimizer.step()
             for key in trace.keys():
                 if key not in metrics:
                     metrics[key] = trace[key].detach()
                 else:
-                    metrics[key] += trace[key].detach()        
-        torch.save(ebm.state_dict(), "../weights/ebm-%s" % SAVE_VERSION)
-        torch.save(proposal.state_dict(), "../weights/proposal-%s" % SAVE_VERSION)
+                    metrics[key] += trace[key].detach()   
+        torch.save(ebm1.state_dict(), "../weights/ebm-%s" % SAVE_VERSION)
+        torch.save(proposal1.state_dict(), "../weights/proposal-%s" % SAVE_VERSION)
+ 
         logging(metrics=metrics, filename=SAVE_VERSION, average_normalizer=b+1, epoch=epoch)
         time_end = time.time()
         print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, num_epochs, time_end - time_start))
@@ -51,7 +54,6 @@ if __name__ == "__main__":
     from ffebm.data_noise import DATA_NOISE_sampler
     from ffebm.nets.ffebm_onelayer import Energy_function
     from ffebm.nets.proposal_onelayer import Proposal
-    
     CUDA = torch.cuda.is_available()
     if CUDA:
         DEVICE = torch.device('cuda:0')
@@ -60,30 +62,30 @@ if __name__ == "__main__":
     num_epochs = 1000
     batch_size = 100
     sample_size = 10
-    latent_dim = 32
+    latent_dim = 10
     hidden_dim = 128
     mnist_size = 28
-    patch_size = 3
-    pixel_dim = patch_size**2
-    num_patches = mnist_size - patch_size + 1
+    patch_size1 = 4
     lr = 1 * 1e-4
     ## EBM hyper-parameters
     data_noise_std = 1.5e-2
-    reg_alpha = 0.0
-    SAVE_VERSION = 'mnist-ffebm-1layer-%.2Elr-%.2Elatentdim-%.2Eregalpha-%.2Edata_noise_std' % (lr, latent_dim, reg_alpha, data_noise_std) 
+    reg_alpha = 0.01
+    SAVE_VERSION = 'mnist-ffebm-1layer-reg_alpha=%.2E' % reg_alpha
     
     ## data directory
     print('Load MNIST dataset...')
     DATA_DIR = '../../../sebm_data/'
-    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None)
+    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=0.5, resize=None)
     
     print('Initialize EBM, proposal and optimizer...')
-    ebm = Energy_function(out_channel=latent_dim, CUDA=CUDA, DEVICE=DEVICE)
-    proposal = Proposal(latent_dim, hidden_dim, pixel_dim)
+    ebm1 = Energy_function(latent_dim=latent_dim, CUDA=CUDA, DEVICE=DEVICE)
+
+    proposal1 = Proposal(latent_dim, hidden_dim, mnist_size**2)
     if CUDA:
-        ebm.cuda().to(DEVICE)   
-        proposal.cuda().to(DEVICE)
-    optimizer = torch.optim.Adam(list(ebm.parameters())+list(proposal.parameters()), lr=lr, betas=(0.9, 0.999))
+        with torch.cuda.device(DEVICE):
+            ebm1.cuda()
+            proposal1.cuda()
+    optimizer = torch.optim.Adam(list(ebm1.parameters())+list(proposal1.parameters()), lr=lr, betas=(0.9, 0.999))
 
     print('Initialize data noise sampler...')
     if data_noise_std == 0.0:
@@ -95,15 +97,12 @@ if __name__ == "__main__":
         
     print('Start training...')
     train(optimizer=optimizer, 
-          ebm=ebm, 
-          proposal=proposal,
-          data_noise_sampler=data_noise_sampler,
+          ebm=ebm1, 
+          proposal=proposal1,
           train_data=train_data, 
           num_epochs=num_epochs,
           sample_size=sample_size,
           batch_size=batch_size,
-          num_patches=num_patches,
-          mnist_size=mnist_size,
           reg_alpha=reg_alpha,
           CUDA=CUDA, 
           DEVICE=DEVICE, 

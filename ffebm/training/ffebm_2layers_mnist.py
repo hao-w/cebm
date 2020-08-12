@@ -10,7 +10,6 @@ def train(optimizer, ebms, proposals, train_data, num_epochs, sample_size, batch
     for epoch in range(num_epochs):
         time_start = time.time()
         metrics = dict()
-#         metrics = {'loss_theta' : 0.0, 'loss_phi' : 0.0, 'ess' : 0.0}
         for b, (images, _) in enumerate(train_data):
 #             pixels_size = images.shape[-1]
 #             batch_size = images.shape[0]
@@ -32,7 +31,6 @@ def train(optimizer, ebms, proposals, train_data, num_epochs, sample_size, batch
                     metrics[key] = trace[key].detach()
                 else:
                     metrics[key] += trace[key].detach()   
-           # print('pass!')
         torch.save(ebm1.state_dict(), "../weights/ebm1-%s" % SAVE_VERSION)
         torch.save(proposal1.state_dict(), "../weights/proposal1-%s" % SAVE_VERSION)
         torch.save(ebm2.state_dict(), "../weights/ebm2-%s" % SAVE_VERSION)
@@ -60,7 +58,7 @@ if __name__ == "__main__":
     from ffebm.data import load_mnist
 #     from ffebm.data_noise import DATA_NOISE_sampler
     from ffebm.nets.ffebm_multilayers import Energy_function
-    from ffebm.nets.proposal_onelayer import Proposal
+    from ffebm.nets.proposal_multilayers import Proposal
     
     CUDA = torch.cuda.is_available()
     if CUDA:
@@ -90,7 +88,7 @@ if __name__ == "__main__":
     ## data directory
     print('Load MNIST dataset...')
     DATA_DIR = '../../../sebm_data/'
-    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None)
+    train_data, test_data = load_mnist(DATA_DIR, batch_size, normalizing=0.5, resize=None)
     
     print('Initialize EBM, proposal and optimizer...')
     ebm1 = Energy_function(in_channel=1, out_channel=latent_dim1, kernel_size=4, stride=4, padding=0, CUDA=CUDA, DEVICE=DEVICE)

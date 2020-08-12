@@ -73,7 +73,7 @@ def marginal_kl_multilayers(ebms, proposals, data_images, sample_size, num_patch
         trace['regularize_term3'] = reg_alpha * ((energy_data3**2).sum(-1).sum(-1).mean() + (energy_ebm3**2).sum(-1).sum(-1).mean())
     return trace
 
-def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize_alpha):
+def marginal_kl_1layer(ebm, proposal, data_images, sample_size, reg_alpha):
     """
     objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
     or maximzie the likelihood:
@@ -90,7 +90,7 @@ def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize
     neural_ss1_data = ebm.forward(data_images, dist='data')
     energy_data = ebm.energy(neural_ss1_data, dist='data')
     # compute the expectation w.r.t. ebm distribution
-    latents, _ = ebm.sample_priors(sample_size, batch_size, num_patches)
+    latents, _ = ebm.sample_priors(sample_size, batch_size)
     images_ebm, ll = proposal(latents)
     nerual_ss1_ebm = ebm.forward(images_ebm, dist='ebm')
     energy_ebm = ebm.energy(nerual_ss1_ebm, dist='ebm')
@@ -101,11 +101,8 @@ def marginal_kl(ebm, proposal, data_images, sample_size, num_patches, regularize
     trace['loss_phi'] = (w * ( - ll)).sum(0).sum(-1).sum(-1).mean()
     trace['energy_data'] = energy_data.sum(-1).sum(-1).mean().detach()
     trace['energy_ebm'] = (w * energy_ebm).sum(0).sum(-1).sum(-1).mean().detach()
-#     loss = energy_data.sum(-1).sum(-1).mean() - energy_ebm.sum(-1).sum(-1).mean()
-#     if regularize_alpha is not None:
-#         regularize_term = regularize_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
-#     else:
-#         regularize_term = 0
+    if reg_alpha != 0.0:
+        trace['regularize_term'] = reg_alpha * ((energy_data**2).sum(-1).sum(-1).mean() + (energy_ebm**2).sum(-1).sum(-1).mean())
     return trace
 
 
