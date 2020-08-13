@@ -104,22 +104,22 @@ if __name__ == "__main__":
     if CUDA:
         DEVICE = torch.device('cuda:0')
     print('torch:', torch.__version__, 'CUDA:', CUDA)
-    DNSs = [3e-2, 1e-2, 5e-3, 1e-3]
-    SGLDNSs = [1e-2, 7.5e-3, 5e-3, 2.5e-3]
-    REGs = [0.0, 1e-2, 5e-2, 1e-1]
+    DNSs = [3e-2, 1e-2]
+    SGLDNSs = [7.5e-3, 1e-3, 1e-2]
+    REGs = [1e-3, 5e-3, 1e-2]
     for i in DNSs:
         for j in SGLDNSs:
             for k in REGs:
                 print('grid search with data_noise_std=%.2E, sgld_noise_std=%.2E, regular=%.2E...' % (i, j, k))
-                grid_search_training(num_epochs=50, 
+                grid_search_training(num_epochs=100, 
                                      batch_size=100, 
                                      latent_dim=10, 
-                                     lr=1e-4, 
+                                     lr=5e-5, 
                                      data_noise_std=i, 
                                      sgld_noise_std=j, 
                                      sgld_step_size=1, 
                                      sgld_num_steps=50, 
-                                     buffer_size=1000, 
+                                     buffer_size=5000, 
                                      buffer_percent=0.95, 
                                      reg_alpha=k, 
                                      CUDA=CUDA, 

@@ -8,23 +8,31 @@ class Energy_function(nn.Module):
     """
     An energy based model
     """
-    def __init__(self, latent_dim, CUDA, DEVICE, negative_slope=0.01, optimize_priors=False):
+    def __init__(self, latent_dim, CUDA, DEVICE, optimize_priors=False):
         super(self.__class__, self).__init__()
-        self.cnn = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
-            nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
-            nn.Conv2d(64, 32, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
-            nn.Conv2d(32, 32, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True))
-
-        self.fc = nn.Sequential(
-            nn.Linear(288, 128),
-            nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
-            nn.Linear(128, latent_dim))
         
+        self.cnn1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1)
+        self.cnn2 = nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1)
+        self.cnn3 = nn.Conv2d(64, 32, kernel_size=4, stride=2, padding=1)
+        self.cnn4 = nn.Conv2d(32, 32, kernel_size=4, stride=2, padding=1)
+
+        self.fc1 = nn.Linear(288, 128)
+        self.fc2 = nn.Linear(128, latent_dim)
+        
+#         self.cnn = nn.Sequential(
+#             nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
+#             nn.LeakyReLU(negative_slope=0.01, inplace=True),
+#             nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1),
+#             nn.LeakyReLU(negative_slope=0.01, inplace=True),
+#             nn.Conv2d(64, 32, kernel_size=4, stride=2, padding=1),
+#             nn.LeakyReLU(negative_slope=0.01, inplace=True),
+#             nn.Conv2d(32, 32, kernel_size=4, stride=2, padding=1),
+#             nn.LeakyReLU(negative_slope=0.01, inplace=True))
+
+#         self.fc = nn.Sequential(
+#             nn.Linear(288, 128),
+#             nn.LeakyReLU(negative_slope=negative_slope, inplace=True),
+#             nn.Linear(128, latent_dim))
         
         self.prior_nat1 = torch.zeros(latent_dim)
         self.prior_nat2 = - 0.5 * torch.ones(latent_dim) # same prior for each pixel        
@@ -45,8 +53,13 @@ class Energy_function(nn.Module):
         of size S * B * latent_dim (model distritbution)
         """
         B = images.shape[0]
-        h1 = self.cnn(images) 
-        return self.fc(h1.view(B, 288)) 
+        h1 = self.cnn1(images) 
+        h2 = self.cnn2((h1 * torch.sigmoid(h1)))
+        h3 = self.cnn2((h2 * torch.sigmoid(h2)))
+        h4 = self.cnn2((h3 * torch.sigmoid(h3)))
+        h4 = h4.view(B, 288)
+        h5 = self.fc1(h4 * torch.sigmoid(h4))
+        return self.fc2(h5 * torch.sigmoid(h5))
         
     def sample_priors(self, sample_size, batch_size):
         """
