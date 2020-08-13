@@ -55,8 +55,8 @@ class Energy_function(nn.Module):
         B = images.shape[0]
         h1 = self.cnn1(images) 
         h2 = self.cnn2((h1 * torch.sigmoid(h1)))
-        h3 = self.cnn2((h2 * torch.sigmoid(h2)))
-        h4 = self.cnn2((h3 * torch.sigmoid(h3)))
+        h3 = self.cnn3((h2 * torch.sigmoid(h2)))
+        h4 = self.cnn4((h3 * torch.sigmoid(h3)))
         h4 = h4.view(B, 288)
         h5 = self.fc1(h4 * torch.sigmoid(h4))
         return self.fc2(h5 * torch.sigmoid(h5))
