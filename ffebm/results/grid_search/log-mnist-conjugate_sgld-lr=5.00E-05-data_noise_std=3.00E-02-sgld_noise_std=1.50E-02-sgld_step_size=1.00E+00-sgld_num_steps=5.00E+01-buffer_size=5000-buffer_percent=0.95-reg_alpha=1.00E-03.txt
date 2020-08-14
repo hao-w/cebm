@@ -39,3 +39,10 @@ Epoch=38, loss_theta=-1.334e+00,  energy_data=-1.855e+01,  energy_ebm=-1.721e+01
 Epoch=39, loss_theta=-1.337e+00,  energy_data=-1.857e+01,  energy_ebm=-1.723e+01,  regularize_term=6.686e-01
 Epoch=40, loss_theta=-1.320e+00,  energy_data=-1.845e+01,  energy_ebm=-1.713e+01,  regularize_term=6.599e-01
 Epoch=41, loss_theta=-1.309e+00,  energy_data=-1.840e+01,  energy_ebm=-1.709e+01,  regularize_term=6.565e-01
+Epoch=42, loss_theta=-1.298e+00,  energy_data=-1.828e+01,  energy_ebm=-1.698e+01,  regularize_term=6.484e-01
+Epoch=43, loss_theta=-1.271e+00,  energy_data=-1.812e+01,  energy_ebm=-1.685e+01,  regularize_term=6.370e-01
+Epoch=44, loss_theta=-1.278e+00,  energy_data=-1.814e+01,  energy_ebm=-1.686e+01,  regularize_term=6.380e-01
+Epoch=45, loss_theta=-1.303e+00,  energy_data=-1.834e+01,  energy_ebm=-1.704e+01,  regularize_term=6.525e-01
+Epoch=46, loss_theta=-1.315e+00,  energy_data=-1.839e+01,  energy_ebm=-1.708e+01,  regularize_term=6.576e-01
+Epoch=47, loss_theta=-1.329e+00,  energy_data=-1.851e+01,  energy_ebm=-1.718e+01,  regularize_term=6.643e-01
+Epoch=48, loss_theta=-1.336e+00,  energy_data=-1.857e+01,  energy_ebm=-1.724e+01,  regularize_term=6.686e-01
