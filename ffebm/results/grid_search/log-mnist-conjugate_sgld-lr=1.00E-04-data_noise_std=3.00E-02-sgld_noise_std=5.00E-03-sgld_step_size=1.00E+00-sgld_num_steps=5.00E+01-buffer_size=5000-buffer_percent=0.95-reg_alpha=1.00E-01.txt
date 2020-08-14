@@ -1,0 +1,10 @@
+Epoch=1, loss_theta=-4.271e+00,  energy_data=-4.384e+00,  energy_ebm=-1.132e-01,  regularize_term=2.124e+00
+Epoch=2, loss_theta=-4.439e+00,  energy_data=-4.616e+00,  energy_ebm=-1.771e-01,  regularize_term=2.220e+00
+Epoch=3, loss_theta=-4.347e+00,  energy_data=-4.552e+00,  energy_ebm=-2.046e-01,  regularize_term=2.174e+00
+Epoch=4, loss_theta=-4.302e+00,  energy_data=-4.522e+00,  energy_ebm=-2.195e-01,  regularize_term=2.151e+00
+Epoch=5, loss_theta=-4.272e+00,  energy_data=-4.500e+00,  energy_ebm=-2.279e-01,  regularize_term=2.137e+00
+Epoch=6, loss_theta=-4.225e+00,  energy_data=-4.469e+00,  energy_ebm=-2.436e-01,  regularize_term=2.113e+00
+Epoch=7, loss_theta=-4.190e+00,  energy_data=-4.444e+00,  energy_ebm=-2.540e-01,  regularize_term=2.095e+00
+Epoch=8, loss_theta=-4.183e+00,  energy_data=-4.440e+00,  energy_ebm=-2.568e-01,  regularize_term=2.092e+00
+Epoch=9, loss_theta=-4.174e+00,  energy_data=-4.434e+00,  energy_ebm=-2.598e-01,  regularize_term=2.087e+00
+Epoch=10, loss_theta=-4.138e+00,  energy_data=-4.406e+00,  energy_ebm=-2.685e-01,  regularize_term=2.069e+00
