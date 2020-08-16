@@ -1,0 +1,2 @@
+Epoch=1, loss_theta=7.884e+00,  energy_data=-7.485e+00,  energy_ebm=-1.537e+01,  regularize_term=9.686e+01
+Epoch=2, loss_theta=-1.053e+00,  energy_data=-1.750e+01,  energy_ebm=-1.645e+01,  regularize_term=8.406e-01
