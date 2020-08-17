@@ -9,7 +9,7 @@ class SGLD_sampler():
     """
     An sampler using stochastic gradient langevin dynamics 
     """
-    def __init__(self, noise_std, lr, pixel_size, buffer_size, buffer_percent, grad_clipping, device):
+    def __init__(self, device, noise_std, lr, pixel_size, buffer_size, buffer_percent, buffer_init, buffer_dup_allowed, grad_clipping=False):
         super(self.__class__, self).__init__()
         self.initial_dist = Uniform(-1 * torch.ones((pixel_size, pixel_size)).cuda().to(device),
                                    torch.ones((pixel_size,pixel_size)).cuda().to(device))
@@ -19,36 +19,93 @@ class SGLD_sampler():
         self.buffer_size = buffer_size
         self.buffer_percent = buffer_percent
         self.grad_clipping=grad_clipping
-        self.buffer = self.initial_dist.sample((buffer_size, 1, ))
-        self.device=device
-    def sgld_update(self, ebm, batch_size, pixels_size, num_steps):
+        self.buffer_init = buffer_init
+        if self.buffer_init: # whether initialize buffer at the beginning 
+            self.buffer = self.initial_dist.sample((self.buffer_size, 1, ))
+            self.buffer_dup_allowed = buffer_dup_allowed
+        else:
+            self.buffer = None
+            self.buffer_dup_allowed = True # without init buffer, always allow duplicated sampling, i.e. ignore that parameter    
+        self.device = device
+
+    def sample_from_buffer(self, batch_size):
         """
-        perform update using slgd
+        sample from buffer with a frequency
+        self.buffer_dup_allowed = True allows sampling the same chain multiple time within one sampling step
+        which is used in JEM and IGEBM  
         """
-        inds = torch.randint(0, self.buffer.shape[0], (batch_size, ), device=self.device)
-        samples_from_buffer = self.buffer[inds]
-        choose_random = (torch.rand(batch_size, device=self.device) < self.buffer_percent).float()[:, None, None, None]
-        samples_from_init = self.initial_dist.sample((batch_size, 1,))
-        samples = (1 - choose_random) * samples_from_init + choose_random * samples_from_buffer
-#             num_from_buffer = int(self.buffer_percent * batch_size)
-#             num_from_init = batch_size - num_from_buffer
-#             samples_from_buffer = self.sample_from_buffer(num_from_buffer)
-            
-#             samples_from_init = self.initial_dist.sample((num_from_init, 1, pixels_size, pixels_size,)).squeeze(-1)
-#             samples = torch.cat((samples_from_buffer, samples_from_init), 0)
-#             assert samples.shape == (batch_size, 1, pixels_size, pixels_size), "ERROR! samples have unexpected shape."
-    
-#         else: 
-#             samples = self.initial_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
-        
+        if self.buffer_dup_allowed:
+            samples = self.initial_dist.sample((batch_size, 1, ))
+            inds = torch.randint(0, self.buffer_size (batch_size, ))
+            samples_from_buffer = self.buffer(inds)
+            rand_mask = (torch.rand(batch_size) < self.buffer_percent)
+            samples[rand_mask] = samples_from_buffer[rand_mask]
+        else:
+            inds = int(self.buffer_percent * batch_size)
+            self.buffer = self.buffer[torch.randperm(len(self.buffer))]
+            samples_from_buffer = self.buffer[:inds]
+            samples_from_init = self.initial_dist.sample((batch_size - inds, 1,))
+            samples = torch.cat((samples_from_buffer, samples_from_init), 0)
+        assert samples.shape[0] == batch_size, "Samples have unexpected shape."            
+        return samples, inds
+
+    def nsgd_steps(self, ebm, num_steps):
+        """
+        perform noisy gradient descent steps and return updated samples 
+        """
         for l in range(num_steps):
-            # compute gradient 
             samples.requires_grad = True
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
-        self.buffer[inds] = samples
+        samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
+        assert samples.requires_grad = False, "samples should not require gradient."
+        return samples 
+    
+    def refine_buffer(self, )
+    
+    def refine_buffer(self, samples, inds):
+        """
+        update replay buffer
+        """
+        if self.buffer_init:
+            if self.buffer_dup_allowed:
+                self.buffer[inds] = samples
+            else:
+                self.buffer[:inds] = samples[:inds]
+        else:
+            if self.buffer is None:
+                self.buffer = samples
+            else:
+                self.buffer = torch.cat((self.buffer, samples), 0)
+                if self.buffer_size < len(self.buffer):
+                    ## truncate buffer from 'head' of the queue
+                    self.buffer = self.buffer[len(self.buffer) - self.buffer_size:]
+        assert len(self.buffer) == self.buffer_size
+                
+    def sample(self, ebm, batch_size, num_steps, pcd=True):
+        """
+        perform update using slgd
+        pcd means that we sample from replay buffer (with a frequency)
+        if buffer is not initialized in advance, we check its storage and 
+        init from random noise if storage is smaller than batch_size.
+        """
+        if pcd:
+            if self.buffer_init:
+                samples, inds = self.sample_from_buffer(batch_size)
+            else:
+                if self.buffer is not None and len(self.buffer) >= batch_size:     
+                    samples, _ = self.sample_from_buffer(batch_size)
+                else: 
+                    samples = self.initial_dist.sample((batch_size, 1, ))
+                inds = None
+        else:
+            samples = self.initial_dist.sample((batch_size, 1, ))
+        samples = self.nsgd_steps(ebm, num_steps)
+        ## refine buffer if pcd
+        if pcd:
+            self.refine_buffer(samples, inds)
         return samples
         
 class Train_procedure():
@@ -94,10 +151,7 @@ class Train_procedure():
         trace = dict()
         batch_size, C, pixels_size, _ = images_data.shape
         energy_data = self.ebm.energy(images_data)
-        images_ebm = self.sgld_sampler.sgld_update(ebm=ebm, 
-                                                      batch_size=batch_size, 
-                                                      pixels_size=pixels_size, 
-                                                      num_steps=self.sgld_num_steps)
+        images_ebm = self.sgld_sampler.sgld_update(ebm, batch_size, self.sgld_num_steps)
         energy_ebm = ebm.energy(images_ebm)
         trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
         trace['energy_data'] = energy_data.detach().mean()
@@ -120,6 +174,7 @@ if __name__ == "__main__":
     import argparse
     from sebm.data import load_mnist  
     from sebm.models import CEBM_1ss
+    from util import set_seed
     parser = argparse.ArgumentParser('Conjugate EBM')
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
@@ -148,15 +203,17 @@ if __name__ == "__main__":
     ## sgld sampler config
     parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
+    parser.add_argument('--buffer_init', default=True, type=bool)
+    parser.add_argument('--buffer_dup_allowed', default=True, type=bool)
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_lr', default=1.0, type=float)
     parser.add_argument('--sgld_num_steps', default=50, type=int)
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
     args = parser.parse_args()
-    
+    set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-reg_alpha=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-reg_alpha=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.regularize_factor, args.activation, args.arch)
 
     print('Experiment with ' + save_version)
     if args.dataset == 'mnist':
@@ -183,13 +240,14 @@ if __name__ == "__main__":
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     
     print('Initialize sgld sampler...')
-    sgld_sampler = SGLD_sampler(noise_std=args.sgld_noise_std,
+    sgld_sampler = SGLD_sampler(device=device,
+                                noise_std=args.sgld_noise_std,
                                 lr=args.sgld_lr,
                                 pixel_size=im_height,
                                 buffer_size=args.buffer_size,
                                 buffer_percent=args.buffer_percent,
-                                grad_clipping=False,
-                                device=device)
+                                buffer_init=args.buffer_init,
+                                buffer_dup_allowed=args.buffer_dup_allowed)
     
     print('Start training...')
     trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.batch_size, args.regularize_factor, device, save_version)

@@ -44,7 +44,7 @@ class SGLD_sampler():
             # compute gradient 
             samples.requires_grad = True
             grads = torch.autograd.grad(outputs=ebm.energy(ebm.forward(samples)).sum(), inputs=samples)[0]
-            if self.grad_clippint:
+            if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             noise = self.noise_std * torch.randn_like(grads)
             samples = (samples - (self.step_size / 2) * grads + noise).detach()
