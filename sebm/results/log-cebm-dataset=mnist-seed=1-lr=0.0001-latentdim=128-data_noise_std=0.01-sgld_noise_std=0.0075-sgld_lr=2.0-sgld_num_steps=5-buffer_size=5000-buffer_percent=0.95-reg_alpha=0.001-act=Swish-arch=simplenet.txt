@@ -1,0 +1,2 @@
+Epoch=1, loss=6.449e+00,  energy_data=-4.029e+01,  energy_ebm=-4.491e+01
+Epoch=2, loss=-1.042e+00,  energy_data=-3.185e+01,  energy_ebm=-2.978e+01
