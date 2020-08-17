@@ -233,7 +233,8 @@ if __name__ == "__main__":
                   paddings=eval(args.paddings), 
                   hidden_dim=eval(args.hidden_dim),
                   latent_dim=args.latent_dim,
-                  activation=args.activation)
+                  activation=args.activation,
+                  leak=args.leak)
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     
