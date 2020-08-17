@@ -31,36 +31,4 @@ def marginal_kl_1layer(ebm, proposal, data_images, sample_size, reg_alpha):
     if reg_alpha != 0.0:
         trace['regularize_term'] = reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
     return trace
-
-def pcd(ebm, sgld_sampler, sgld_num_steps, data_images, reg_alpha):
-    """
-    objective that minimizes the KL (p^{DATA} (x) || p_\theta (x)),
-    or maximzie the likelihood:
-    '''
-    -\nabla_\theta E_{p^{DATA}(x)} [\log \frac{p^{DATA} (x)}{p_\theta (x)}]
-    = \nabla_\theta E_{p^{DATA}(x)} [-E_\theta(x) - \log Z_\theta]
-    = - \nabla_\theta (E_{p^{DATA}(x)} [E_\theta(x)] - E_{p_\theta(x)}[E(x)])
-    '''
-    we acquire samples from ebm using stochastic gradient langevin dynamics
-    """ 
-    trace = dict()
-    # compute the expectation w.r.t. data distribution
-    batch_size, C, pixels_size, _ = data_images.shape
-    neural_ss1_data = ebm.forward(data_images)
-    energy_data = ebm.energy(neural_ss1_data)
-
-    images_ebm = sgld_sampler.sgld_update(ebm=ebm, 
-                                          batch_size=batch_size, 
-                                          pixels_size=pixels_size, 
-                                          num_steps=sgld_num_steps, 
-                                          persistent=True)
-    
-    nerual_ss1_ebm = ebm.forward(images_ebm)
-    energy_ebm = ebm.energy(nerual_ss1_ebm)
-    trace['loss_theta'] = (energy_data - energy_ebm).mean()
-    trace['energy_data'] = energy_data.mean().detach()
-    trace['energy_ebm'] = energy_ebm.mean().detach()
-    if reg_alpha != 0.0:
-        trace['regularize_term'] = reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
-    return trace
     

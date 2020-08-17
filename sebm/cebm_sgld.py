@@ -9,37 +9,37 @@ class SGLD_sampler():
     """
     An sampler using stochastic gradient langevin dynamics 
     """
-    def __init__(self, noise_std, lr, buffer_size, buffer_percent, grad_clipping, device):
+    def __init__(self, noise_std, lr, pixel_size, buffer_size, buffer_percent, grad_clipping, device):
         super(self.__class__, self).__init__()
-        self.initial_dist = Uniform(-1 * torch.ones(1).cuda().to(device),
-                                   torch.ones(1).cuda().to(device))
+        self.initial_dist = Uniform(-1 * torch.ones((pixel_size, pixel_size)).cuda().to(device),
+                                   torch.ones((pixel_size,pixel_size)).cuda().to(device))
                         
         self.lr = lr
         self.noise_std = noise_std
         self.buffer_size = buffer_size
         self.buffer_percent = buffer_percent
-        self.persistent_samples = None
         self.grad_clipping=grad_clipping
-    
-    def sgld_update(self, ebm, batch_size, pixels_size, num_steps, persistent=True):
+        self.buffer = self.initial_dist.sample((buffer_size, 1, ))
+        self.device=device
+    def sgld_update(self, ebm, batch_size, pixels_size, num_steps):
         """
         perform update using slgd
         """
-        
-        if persistent: # persistent sgld
-            if self.persistent_samples is None: # if not yet initialized
-                self.persistent_samples = self.init_samples(self.buffer_size, pixels_size)
-                assert self.persistent_samples.shape == (self.buffer_size, 1, pixels_size, pixels_size), "ERROR! buffer sampels have expected shape."
-            num_from_buffer = int(self.buffer_percent * batch_size)
-            num_from_init = batch_size - num_from_buffer
-            samples_from_buffer = self.sample_from_buffer(num_from_buffer)
+        inds = torch.randint(0, self.buffer.shape[0], (batch_size, ), device=self.device)
+        samples_from_buffer = self.buffer[inds]
+        choose_random = (torch.rand(batch_size, device=self.device) < self.buffer_percent).float()[:, None, None, None]
+        samples_from_init = self.initial_dist.sample((batch_size, 1,))
+        samples = (1 - choose_random) * samples_from_init + choose_random * samples_from_buffer
+#             num_from_buffer = int(self.buffer_percent * batch_size)
+#             num_from_init = batch_size - num_from_buffer
+#             samples_from_buffer = self.sample_from_buffer(num_from_buffer)
             
-            samples_from_init = self.init_samples(num_from_init, pixels_size)
-            samples = torch.cat((samples_from_buffer, samples_from_init), 0)
-            assert samples.shape == (batch_size, 1, pixels_size, pixels_size), "ERROR! samples have unexpected shape."
+#             samples_from_init = self.initial_dist.sample((num_from_init, 1, pixels_size, pixels_size,)).squeeze(-1)
+#             samples = torch.cat((samples_from_buffer, samples_from_init), 0)
+#             assert samples.shape == (batch_size, 1, pixels_size, pixels_size), "ERROR! samples have unexpected shape."
     
-        else: 
-            samples = self.init_samples(batch_size, pixels_size)
+#         else: 
+#             samples = self.initial_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
         
         for l in range(num_steps):
             # compute gradient 
@@ -47,20 +47,9 @@ class SGLD_sampler():
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
-            noise = self.noise_std * torch.randn_like(grads)
-            samples = (samples - (self.lr / 2) * grads + noise).detach()
-        if persistent:
-            self.persistent_samples = torch.cat((samples[:num_from_buffer], self.persistent_samples[num_from_buffer:]), 0)
-            assert self.persistent_samples.shape == (self.buffer_size, 1, pixels_size, pixels_size), "ERROR! buffer samples have unexpected shape."
+            samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
+        self.buffer[inds] = samples
         return samples
-        
-    def init_samples(self, batch_size, pixels_size):
-        return self.initial_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
-    
-    def sample_from_buffer(self, sample_size):
-        rand_index = torch.randperm(self.persistent_samples.shape[0])
-        self.persistent_samples = self.persistent_samples[rand_index]
-        return self.persistent_samples[:sample_size]
         
 class Train_procedure():
     def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, batch_size, regularize_factor, device, save_version):
@@ -93,7 +82,7 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach()   
-            torch.save(ebm.state_dict(), "../weights/ebm-%s" % self.save_version)
+            torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
@@ -108,8 +97,7 @@ class Train_procedure():
         images_ebm = self.sgld_sampler.sgld_update(ebm=ebm, 
                                                       batch_size=batch_size, 
                                                       pixels_size=pixels_size, 
-                                                      num_steps=self.sgld_num_steps, 
-                                                      persistent=True)
+                                                      num_steps=self.sgld_num_steps)
         energy_ebm = ebm.energy(images_ebm)
         trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
         trace['energy_data'] = energy_data.detach().mean()
@@ -119,9 +107,9 @@ class Train_procedure():
     
     def logging(self, metrics, N, epoch):
         if epoch == 0:
-            log_file = open('../results/log-' + self.save_version + '.txt', 'w+')
+            log_file = open('results/log-' + self.save_version + '.txt', 'w+')
         else:
-            log_file = open('../results/log-' + self.save_version + '.txt', 'a+')
+            log_file = open('results/log-' + self.save_version + '.txt', 'a+')
         metrics_print = ",  ".join(['%s=%.3e' % (k, v / N) for k, v in metrics.items()])
         print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
         log_file.close()
@@ -197,6 +185,7 @@ if __name__ == "__main__":
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(noise_std=args.sgld_noise_std,
                                 lr=args.sgld_lr,
+                                pixel_size=im_height,
                                 buffer_size=args.buffer_size,
                                 buffer_percent=args.buffer_percent,
                                 grad_clipping=False,
