@@ -6,19 +6,13 @@ class SGLD_sampler():
     """
     An sampler using stochastic gradient langevin dynamics 
     """
-    def __init__(self, noise_std, step_size, buffer_size, buffer_percent, grad_clipping, CUDA, DEVICE):
+    def __init__(self, noise_std, step_size, buffer_size, buffer_percent, grad_clipping, device):
         super(self.__class__, self).__init__()
-
-        if noise_std == 0:
-            self.noise_dist = None
-        else:
-            self.noise_dist = Normal(torch.zeros(1).cuda().to(DEVICE),
-                                       torch.ones(1).cuda().to(DEVICE) * noise_std)
-        
-        self.initial_dist = Uniform(-1 * torch.ones(1).cuda().to(DEVICE),
-                                   torch.ones(1).cuda().to(DEVICE))
+        self.initial_dist = Uniform(-1 * torch.ones(1).cuda().to(device),
+                                   torch.ones(1).cuda().to(device))
                         
         self.step_size = step_size
+        self.noise_std = noise_std
         self.buffer_size = buffer_size
         self.buffer_percent = buffer_percent
         self.persistent_samples = None
@@ -49,15 +43,10 @@ class SGLD_sampler():
         for l in range(num_steps):
             # compute gradient 
             samples.requires_grad = True
-            grads_tuple = torch.autograd.grad(outputs=ebm.energy(ebm.forward(samples)).sum(), inputs=samples)
-            if self.grad_clipping:
-                grads = torch.clamp(grads_tuple[0], min=-1e-2, max=1e-2)
-            else:
-                grads = grads_tuple[0]
-            if self.noise_dist is not None:
-                noise = self.noise_dist.sample((batch_size, 1, pixels_size, pixels_size,)).squeeze(-1)
-            else:
-                noise = 0.0
+            grads = torch.autograd.grad(outputs=ebm.energy(ebm.forward(samples)).sum(), inputs=samples)[0]
+            if self.grad_clippint:
+                grads = torch.clamp(grads, min=-1e-2, max=1e-2)
+            noise = self.noise_std * torch.randn_like(grads)
             samples = (samples - (self.step_size / 2) * grads + noise).detach()
         if persistent:
             self.persistent_samples = torch.cat((samples[:num_from_buffer], self.persistent_samples[num_from_buffer:]), 0)

@@ -1,3 +1,4 @@
+
 def set_seed(seed):
     import torch
     import numpy
@@ -5,8 +6,6 @@ def set_seed(seed):
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)
-    
-
 
 # From https://discuss.pytorch.org/t/utility-function-for-calculating-the-shape-of-a-conv-output/11173/5
 def conv_output_shape(h_w, kernel_size=1, stride=1, pad=0, dilation=1):
