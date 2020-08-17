@@ -36,8 +36,8 @@ class SGLD_sampler():
         """
         if self.buffer_dup_allowed:
             samples = self.initial_dist.sample((batch_size, 1, ))
-            inds = torch.randint(0, self.buffer_size (batch_size, ))
-            samples_from_buffer = self.buffer(inds)
+            inds = torch.randint(0, self.buffer_size, (batch_size, ))
+            samples_from_buffer = self.buffer[inds]
             rand_mask = (torch.rand(batch_size) < self.buffer_percent)
             samples[rand_mask] = samples_from_buffer[rand_mask]
         else:
@@ -49,7 +49,7 @@ class SGLD_sampler():
         assert samples.shape[0] == batch_size, "Samples have unexpected shape."            
         return samples, inds
 
-    def nsgd_steps(self, ebm, num_steps):
+    def nsgd_steps(self, ebm, samples, num_steps):
         """
         perform noisy gradient descent steps and return updated samples 
         """
@@ -60,10 +60,8 @@ class SGLD_sampler():
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
         samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
-        assert samples.requires_grad = False, "samples should not require gradient."
+        assert samples.requires_grad == False, "samples should not require gradient."
         return samples 
-    
-    def refine_buffer(self, )
     
     def refine_buffer(self, samples, inds):
         """
@@ -102,7 +100,7 @@ class SGLD_sampler():
                 inds = None
         else:
             samples = self.initial_dist.sample((batch_size, 1, ))
-        samples = self.nsgd_steps(ebm, num_steps)
+        samples = self.nsgd_steps(ebm, samples, num_steps)
         ## refine buffer if pcd
         if pcd:
             self.refine_buffer(samples, inds)
@@ -151,7 +149,7 @@ class Train_procedure():
         trace = dict()
         batch_size, C, pixels_size, _ = images_data.shape
         energy_data = self.ebm.energy(images_data)
-        images_ebm = self.sgld_sampler.sgld_update(ebm, batch_size, self.sgld_num_steps)
+        images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
         trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
         trace['energy_data'] = energy_data.detach().mean()
