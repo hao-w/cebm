@@ -201,8 +201,8 @@ if __name__ == "__main__":
     ## sgld sampler config
     parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
-    parser.add_argument('--buffer_init', default=True, type=bool)
-    parser.add_argument('--buffer_dup_allowed', default=True, type=bool)
+    parser.add_argument('--buffer_init', default=False, action='store_true')
+    parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_lr', default=1.0, type=float)
     parser.add_argument('--sgld_num_steps', default=50, type=int)
