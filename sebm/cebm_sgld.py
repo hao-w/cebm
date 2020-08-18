@@ -223,7 +223,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-dup_allowed=%s-reg_alpha=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm-ss=%s-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-dup_allowed=%s-reg_alpha=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
 
     print('Experiment with ' + save_version)
     if args.dataset == 'mnist':
@@ -233,7 +233,8 @@ if __name__ == "__main__":
     else:
         raise NotImplementError
     print('Initialize EBM...')
-    ebm = CEBM_1ss(arch=args.arch,
+    if args.ss == '1':
+    	ebm = CEBM_1ss(arch=args.arch,
                   optimize_priors=args.optimize_priors,
                   device=device,
                   im_height=im_height, 
@@ -247,6 +248,23 @@ if __name__ == "__main__":
                   latent_dim=args.latent_dim,
                   activation=args.activation,
                   leak=args.leak)
+    elif args.ss == '2':
+        ebm = CEBM_2ss(arch=args.arch,
+                  optimize_priors=args.optimize_priors,
+                  device=device,
+                  im_height=im_height,
+                  im_width=im_width,
+                  input_channels=input_channels,
+                  channels=eval(args.channels),
+                  kernels=eval(args.kernels),
+                  strides=eval(args.strides),
+                  paddings=eval(args.paddings),
+                  hidden_dim=eval(args.hidden_dim),
+                  latent_dim=args.latent_dim,
+                  activation=args.activation,
+                  leak=args.leak)
+    else:
+	raise NotImplementError
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     
