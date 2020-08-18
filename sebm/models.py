@@ -117,12 +117,12 @@ class CEBM_2ss(nn.Module):
         
         argument: dist = 'data' or 'ebm'
         """
-        nerual_ss1 = self.forward(x)
-        nerual_ss2 = - nerual_ss1**2
+        neural_ss1 = self.forward(x)
+        neural_ss2 = - neural_ss1**2
         logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
-        logA_posterior = self.log_partition(self.prior_nat1+neural_ss1, self.prior_nat2+nerual_ss2)
-        assert logA_prior.shape == (nerual_ss1.shape[1],), 'unexpected shape.'
-        assert logA_posterior.shape == (nerual_ss1.shape[0], nerual_ss1.shape[1]), 'unexpected shape.'
+        logA_posterior = self.log_partition(self.prior_nat1+neural_ss1, self.prior_nat2+neural_ss2)
+        assert logA_prior.shape == (neural_ss1.shape[1],), 'unexpected shape.'
+        assert logA_posterior.shape == (neural_ss1.shape[0], neural_ss1.shape[1]), 'unexpected shape.'
         return logA_prior.sum(0) - logA_posterior.sum(1)   
     
     def sample_z_prior(self, sample_size, batch_size):

@@ -1,4 +1,20 @@
+import torch
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
+def plot_samples(images_ebm):
+    test_batch_size = len(images_ebm)
+    images_ebm = images_ebm.squeeze().cpu().detach()
+    images_ebm = torch.clamp(images_ebm, min=-1, max=1) * 0.5 + 0.5
+    gs = gridspec.GridSpec(int(test_batch_size/10), 10)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
+    fig = plt.figure(figsize=(10, 10*int(test_batch_size/10)/ 10))
+    for i in range(test_batch_size):
+        ax = fig.add_subplot(gs[int(i/10), i%10])
+        ax.imshow(images_ebm[i], cmap='gray', vmin=0, vmax=1.0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
 def set_seed(seed):
     import torch
     import numpy

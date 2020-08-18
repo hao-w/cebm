@@ -36,9 +36,9 @@ class SGLD_sampler():
         """
         if self.buffer_dup_allowed:
             samples = self.initial_dist.sample((batch_size, 1, ))
-            inds = torch.randint(0, self.buffer_size, (batch_size, ))
+            inds = torch.randint(0, self.buffer_size, (batch_size, ), device=self.device)
             samples_from_buffer = self.buffer[inds]
-            rand_mask = (torch.rand(batch_size) < self.buffer_percent)
+            rand_mask = (torch.rand(batch_size, device=self.device) < self.buffer_percent)
             samples[rand_mask] = samples_from_buffer[rand_mask]
         else:
             inds = int(self.buffer_percent * batch_size)
@@ -80,7 +80,7 @@ class SGLD_sampler():
                 if self.buffer_size < len(self.buffer):
                     ## truncate buffer from 'head' of the queue
                     self.buffer = self.buffer[len(self.buffer) - self.buffer_size:]
-        assert len(self.buffer) == self.buffer_size
+#         assert len(self.buffer) == self.buffer_size
                 
     def sample(self, ebm, batch_size, num_steps, pcd=True):
         """
@@ -130,6 +130,9 @@ class Train_procedure():
                 images = images.cuda().to(self.device)
                 images = images + self.data_noise_std * torch.randn_like(images)
                 trace = self.pcd(images)
+                if trace['loss'].abs().item() > 1e+8:
+                    print('Model is diverging, will terminate training..')
+                    exit()
                 trace['loss'].backward()
                 self.optimizer.step()
                 for key in trace.keys():
@@ -137,7 +140,8 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach()   
-            torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
+            self.save_checkpoints()
+#             torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
@@ -165,15 +169,23 @@ class Train_procedure():
         metrics_print = ",  ".join(['%s=%.3e' % (k, v / N) for k, v in metrics.items()])
         print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
         log_file.close()
+        
+    def save_checkpoints(self):
+        checkpoint_dict  = {
+            'model_state_dict': self.ebm.state_dict(),
+            'replay_buffer': self.sgld_sampler.buffer}
+        torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
+
 
     
 if __name__ == "__main__":
     import torch
     import argparse
     from sebm.data import load_mnist  
-    from sebm.models import CEBM_1ss
+    from sebm.models import CEBM_1ss, CEBM_2ss
     from util import set_seed
     parser = argparse.ArgumentParser('Conjugate EBM')
+    parser.add_argument('--ss', default='1', choices=['1', '2'])
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
