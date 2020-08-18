@@ -247,7 +247,6 @@ if __name__ == "__main__":
                   activation=args.activation,
                   leak=args.leak)
     ebm = ebm.cuda().to(device)
-    ebm.load_state_dict(torch.load('weights/ebm-%s' % save_version))
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(device=device,
