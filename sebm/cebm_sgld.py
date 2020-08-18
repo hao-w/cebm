@@ -80,7 +80,6 @@ class SGLD_sampler():
                 if self.buffer_size < len(self.buffer):
                     ## truncate buffer from 'head' of the queue
                     self.buffer = self.buffer[len(self.buffer) - self.buffer_size:]
-#         assert len(self.buffer) == self.buffer_size
                 
     def sample(self, ebm, batch_size, num_steps, pcd=True):
         """
@@ -181,7 +180,7 @@ class Train_procedure():
 if __name__ == "__main__":
     import torch
     import argparse
-    from sebm.data import load_mnist  
+    from sebm.data import load_data  
     from sebm.models import CEBM_1ss, CEBM_2ss
     from util import set_seed
     parser = argparse.ArgumentParser('Conjugate EBM')
@@ -190,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=1e-2, type=float)
@@ -224,51 +223,28 @@ if __name__ == "__main__":
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
     save_version = 'cebm-ss=%s-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-dup_allowed=%s-reg_alpha=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
-
     print('Experiment with ' + save_version)
-    if args.dataset == 'mnist':
-        print('Load MNIST dataset...')
-        im_height, im_width, input_channels = 28, 28, 1
-        train_data, test_data = load_mnist(args.data_dir, args.batch_size, normalizing=0.5, resize=None)
-    else:
-        raise NotImplementError
-    print('Initialize EBM...')
-    if args.ss == '1':
-        ebm = CEBM_1ss(arch=args.arch,
-                  optimize_priors=args.optimize_priors,
-                  device=device,
-                  im_height=im_height, 
-                  im_width=im_width, 
-                  input_channels=input_channels, 
-                  channels=eval(args.channels), 
-                  kernels=eval(args.kernels), 
-                  strides=eval(args.strides), 
-                  paddings=eval(args.paddings), 
-                  hidden_dim=eval(args.hidden_dim),
-                  latent_dim=args.latent_dim,
-                  activation=args.activation,
-                  leak=args.leak)
-    elif args.ss == '2':
-        ebm = CEBM_2ss(arch=args.arch,
-                  optimize_priors=args.optimize_priors,
-                  device=device,
-                  im_height=im_height,
-                  im_width=im_width,
-                  input_channels=input_channels,
-                  channels=eval(args.channels),
-                  kernels=eval(args.kernels),
-                  strides=eval(args.strides),
-                  paddings=eval(args.paddings),
-                  hidden_dim=eval(args.hidden_dim),
-                  latent_dim=args.latent_dim,
-                  activation=args.activation,
-                  leak=args.leak)
-    else:
-        raise NotImplementError
-        
+    print('Loading dataset=%s...' % args.dataset)
+    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, resize=32)
+    (input_channels, im_height, im_width) = img_dims  
+    model = eval('CEBM_%sss' % ss)
+    print('Initialize Model=%s...' % model.__name__)
+    ebm = model(arch=args.arch,
+                optimize_priors=args.optimize_priors,
+                device=device,
+                im_height=im_height, 
+                im_width=im_width, 
+                input_channels=input_channels, 
+                channels=eval(args.channels), 
+                kernels=eval(args.kernels), 
+                strides=eval(args.strides), 
+                paddings=eval(args.paddings), 
+                hidden_dim=eval(args.hidden_dim),
+                latent_dim=args.latent_dim,
+                activation=args.activation,
+                leak=args.leak)  
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
-    
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(device=device,
                                 noise_std=args.sgld_noise_std,

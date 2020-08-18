@@ -1,44 +1,152 @@
 import os
 import torch
 from torchvision import datasets, transforms
+from torchvision.datasets.vision import VisionDataset
+from torchvision.datasets.folder import default_loader
 
-def load_mnist(DATA_DIR, batch_size, normalizing=None, resize=None):
-    """
-    load MNIST dataset
-    """
-    if not os.path.isdir(DATA_DIR):
-        os.makedirs(DATA_DIR)
-  
-    if resize is not None:
-        if normalizing is not None:
-            transform = transforms.Compose([
-                    transforms.Resize(resize),
-                    transforms.CenterCrop(resize),
-                    transforms.ToTensor(),
-                    transforms.Normalize((normalizing,), (normalizing,))]) 
-        else:
-            transform = transforms.Compose([
-                    transforms.Resize(resize),
-                    transforms.CenterCrop(resize),
-                    transforms.ToTensor()])
-    else:
-        if normalizing is not None:
-            transform = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize((normalizing,), (normalizing,))]) 
-        else:
-            transform = transforms.Compose([
-                    transforms.ToTensor()])    
+class Flowers102(VisionDataset):
+    data_file = 'data.pt'
 
-    train_data = torch.utils.data.DataLoader(
-                    datasets.MNIST(DATA_DIR, train=True, download=True,
-                                   transform=transform),
-                    batch_size=batch_size, shuffle=True) 
+    def __init__(self, root, loader=default_loader, transform=None, target_transform=None, download=False):
+        super(Flowers102, self).__init__(root, transform=transform,
+                                            target_transform=target_transform)        
+        if download:
+            self.download()
 
-    test_data = torch.utils.data.DataLoader(
-                    datasets.MNIST(DATA_DIR, train=False, download=True,
-                                   transform=transform),
-                    batch_size=batch_size, shuffle=True) 
-    return train_data, test_data
+        if not self._check_exists():
+            raise RuntimeError('Dataset not found.' +
+                               ' You can use download=True to download it')
+        self.data, self.targets = torch.load(os.path.join(self.processed_folder, self.data_file))
+        
+    def __getitem__(self, index):
+        img, target = self.data[index], int(self.targets[index])
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
 
+        return img, target
+
+    def __len__(self):
+        return len(self.data)
     
+    @property
+    def raw_folder(self):
+        return os.path.join(self.root, self.__class__.__name__, 'raw')
+
+    @property
+    def processed_folder(self):
+        return os.path.join(self.root, self.__class__.__name__, 'processed')
+
+    @property
+    def class_to_idx(self):
+        return {_class: i for i, _class in enumerate(self.classes)}
+
+    def _check_exists(self):
+        return os.path.exists(os.path.join(self.processed_folder,
+                                            self.data_file))
+    def download(self):
+        """
+        Dolwnload 102Flower data if if doesn't exist in processed_folder already
+        """
+        if self._check_exists():
+            return
+        
+        import tarfile
+        from scipy.io import loadmat
+        import numpy as np
+        from torchvision import transforms
+        from PIL import Image
+        
+        try:
+            from urllib.request import urlretrieve
+        except ImportError:
+            from urllib import urlretrieve
+        os.makedirs(self.raw_folder, exist_ok=True)
+        os.makedirs(self.processed_folder, exist_ok=True)
+        print('Downloading images from http://www.robots.ox.ac.uk/~vgg/data/flowers/102/ ...')
+        image_file = os.path.join(self.raw_folder, "102flowers.tgz")
+        urlretrieve("http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz", image_file)
+        # extract flower images from tar file
+        print('Extracting ' + image_file + '...')
+        tarfile.open(image_file).extractall(path=self.raw_folder)
+        # clean up
+        os.remove(image_file)
+        label_file = os.path.join(self.raw_folder, "imagelabels.mat")
+        urlretrieve("https://www.robots.ox.ac.uk/~vgg/data/flowers/102/imagelabels.mat", label_file)
+        # process and save as torch files
+        print('Processing...')
+        pre_transforms = transforms.Compose([
+                            transforms.Resize((32,32)),
+                            transforms.ToTensor()
+                            ])
+        data = []
+        for f in range(8189):
+            img = Image.open(os.path.join(self.raw_folder, 'jpg', 'image_0%04d.jpg' % (f+1)))
+            data.append(pre_transforms(img).unsqueeze(0))
+        data = torch.cat(data, 0)
+        assert data.shape == (8189, 3, 32, 32)
+
+        targets = torch.Tensor(np.squeeze(loadmat(data_dir+'imagelabels.mat')['labels']))
+        data_set = (data, targets)
+        with open(os.path.join(self.processed_folder, self.data_file), 'wb') as f:
+            torch.save(data_set, f)
+        print('Done.')
+        
+
+def load_data(dataset, data_dir, batch_size, train=True, resize=32):
+    """
+    load dataset
+    """
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
+    if dataset == 'mnist':
+        img_dims = (1, 28, 28)
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Normalize((0.5,),(0.5,))]) 
+        data = torch.utils.data.DataLoader(
+                        datasets.MNIST(data_dir, train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=True) 
+        
+    elif dataset == 'cifar10':
+        img_dims = (3, 32, 32)
+        transform = transforms.Compose([transforms.Resize((32,32)),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5,0.5,0.5), 
+                                                             (0.5,0.5,0.5))]) 
+        data = torch.utils.data.DataLoader(
+                        datasets.CIFAR10(data_dir, train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=True)
+        
+    elif dataset == 'celeba':
+        img_dims = (3, 32, 32)
+        transform = transforms.Compose([transforms.Resize((32,32)),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5,0.5,0.5), 
+                                                             (0.5,0.5,0.5))]) 
+        if train:
+            data = torch.utils.data.DataLoader(
+                            datasets.CelebA(data_dir, train='train', target_type='attr', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True)
+        else:
+            data = torch.utils.data.DataLoader(
+                            datasets.CelebA(data_dir, train='valid', taraget_type='attr', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True)            
+        
+    elif dataset == 'flowers102':
+        img_dims = (3, 32, 32)
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Normalize((0.5,0.5,0.5), 
+                                                             (0.5,0.5,0.5))]) 
+        data = torch.utils.data.DataLoader(
+                        Flowers102(data_dir, train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=True)
+        
+    else:
+        raise ValueError
+    return data, img_dims
