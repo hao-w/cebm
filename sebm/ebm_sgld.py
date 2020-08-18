@@ -136,8 +136,9 @@ class Train_procedure():
                     if key not in metrics:
                         metrics[key] = trace[key].detach()
                     else:
-                        metrics[key] += trace[key].detach()   
-            torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
+                        metrics[key] += trace[key].detach()  
+            self.save_checkpoints()
+#             torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
@@ -151,7 +152,7 @@ class Train_procedure():
         energy_data = self.ebm.energy(images_data)
         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
-        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
+        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * ((energy_data**2).mean()+(energy_ebm**2).mean())
         trace['energy_data'] = energy_data.detach().mean()
         trace['energy_ebm'] = energy_ebm.detach().mean()
         return trace
@@ -165,8 +166,19 @@ class Train_procedure():
         metrics_print = ",  ".join(['%s=%.3e' % (k, v / N) for k, v in metrics.items()])
         print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
         log_file.close()
+        
+    def save_checkpoints(self):
+        checkpoint_dict  = {
+            'model_state_dict': self.ebm.state_dict(),
+            'replay_buffer': self.sgld_sampler.buffer}
+        torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
 
-    
+
+class Evaluator():
+    def __init__(self, ):
+        super(self.__class__, self).__init__()
+        
+        
 if __name__ == "__main__":
     import torch
     import argparse
@@ -182,7 +194,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', required=True, choices=['mnist'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--data_noise_std', default=1e-2, type=float)
+    parser.add_argument('--data_noise_std', default=3e-2, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=1e-4, type=float)
@@ -204,7 +216,7 @@ if __name__ == "__main__":
     parser.add_argument('--buffer_init', default=False, action='store_true')
     parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
-    parser.add_argument('--sgld_lr', default=1.0, type=float)
+    parser.add_argument('--sgld_lr', default=2.0, type=float)
     parser.add_argument('--sgld_num_steps', default=50, type=int)
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
@@ -212,6 +224,7 @@ if __name__ == "__main__":
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
     save_version = 'ebm-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-dup_allowed=%s-reg_alpha=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
+
 
     print('Experiment with ' + save_version)
     if args.dataset == 'mnist':
@@ -234,18 +247,17 @@ if __name__ == "__main__":
                   activation=args.activation,
                   leak=args.leak)
     ebm = ebm.cuda().to(device)
+    ebm.load_state_dict(torch.load('weights/ebm-%s' % save_version))
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
-    
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(device=device,
-                                noise_std=args.sgld_noise_std,
-                                lr=args.sgld_lr,
-                                pixel_size=im_height,
-                                buffer_size=args.buffer_size,
-                                buffer_percent=args.buffer_percent,
-                                buffer_init=args.buffer_init,
-                                buffer_dup_allowed=args.buffer_dup_allowed)
-    
+                                    noise_std=args.sgld_noise_std,
+                                    lr=args.sgld_lr,
+                                    pixel_size=im_height,
+                                    buffer_size=args.buffer_size,
+                                    buffer_percent=args.buffer_percent,
+                                    buffer_init=args.buffer_init,
+                                    buffer_dup_allowed=args.buffer_dup_allowed)
     print('Start training...')
     trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.batch_size, args.regularize_factor, device, save_version)
     trainer.train()
