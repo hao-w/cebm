@@ -185,7 +185,7 @@ if __name__ == "__main__":
     from sebm.models import CEBM_1ss, CEBM_2ss
     from util import set_seed
     parser = argparse.ArgumentParser('Conjugate EBM')
-    parser.add_argument('--ss', default='1', choices=['1', '2'])
+    parser.add_argument('--ss', default='2', choices=['1', '2'])
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         raise NotImplementError
     print('Initialize EBM...')
     if args.ss == '1':
-    	ebm = CEBM_1ss(arch=args.arch,
+        ebm = CEBM_1ss(arch=args.arch,
                   optimize_priors=args.optimize_priors,
                   device=device,
                   im_height=im_height, 
@@ -264,7 +264,8 @@ if __name__ == "__main__":
                   activation=args.activation,
                   leak=args.leak)
     else:
-	raise NotImplementError
+        raise NotImplementError
+        
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     
