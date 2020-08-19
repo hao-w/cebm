@@ -3,6 +3,8 @@ import torch
 from torchvision import datasets, transforms
 from torchvision.datasets.vision import VisionDataset
 from torchvision.datasets.folder import default_loader
+from PIL import Image
+import numpy as np
 
 class Flowers102(VisionDataset):
     data_file = 'data.pt'
@@ -20,6 +22,7 @@ class Flowers102(VisionDataset):
         
     def __getitem__(self, index):
         img, target = self.data[index], int(self.targets[index])
+        img = Image.fromarray((img.numpy()*255).astype(np.uint8), mode='RGB')
         if self.transform is not None:
             img = self.transform(img)
         if self.target_transform is not None:
@@ -55,8 +58,6 @@ class Flowers102(VisionDataset):
         import tarfile
         from scipy.io import loadmat
         import numpy as np
-        from torchvision import transforms
-        from PIL import Image
         
         try:
             from urllib.request import urlretrieve
@@ -74,12 +75,11 @@ class Flowers102(VisionDataset):
         os.remove(image_file)
         label_file = os.path.join(self.raw_folder, "imagelabels.mat")
         urlretrieve("https://www.robots.ox.ac.uk/~vgg/data/flowers/102/imagelabels.mat", label_file)
-        # process and save as torch files
+#         # process and save as torch files
         print('Processing...')
         pre_transforms = transforms.Compose([
                             transforms.Resize((32,32)),
-                            transforms.ToTensor()
-                            ])
+                            transforms.ToTensor()])
         data = []
         for f in range(8189):
             img = Image.open(os.path.join(self.raw_folder, 'jpg', 'image_0%04d.jpg' % (f+1)))
@@ -87,8 +87,8 @@ class Flowers102(VisionDataset):
         data = torch.cat(data, 0)
         assert data.shape == (8189, 3, 32, 32)
 
-        targets = torch.Tensor(np.squeeze(loadmat(data_dir+'imagelabels.mat')['labels']))
-        data_set = (data, targets)
+        targets = torch.Tensor(np.squeeze(loadmat(os.path.join(self.raw_folder, 'imagelabels.mat'))['labels']))
+        data_set = (data.permute(0, 2, 3, 1), targets)
         with open(os.path.join(self.processed_folder, self.data_file), 'wb') as f:
             torch.save(data_set, f)
         print('Done.')
@@ -120,6 +120,17 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=32):
                                        transform=transform),
                         batch_size=batch_size, shuffle=True)
         
+    elif dataset == 'cifar100':
+        img_dims = (3, 32, 32)
+        transform = transforms.Compose([transforms.Resize((32,32)),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5,0.5,0.5), 
+                                                             (0.5,0.5,0.5))]) 
+        data = torch.utils.data.DataLoader(
+                        datasets.CIFAR10(data_dir+'CIFAR100/', train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=True)    
+        
     elif dataset == 'celeba':
         img_dims = (3, 32, 32)
         transform = transforms.Compose([transforms.Resize((32,32)),
@@ -139,7 +150,8 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=32):
         
     elif dataset == 'flowers102':
         img_dims = (3, 32, 32)
-        transform = transforms.Compose([transforms.ToTensor(),
+        transform = transforms.Compose([transforms.Resize((32, 32)),
+                                        transforms.ToTensor(), 
                                         transforms.Normalize((0.5,0.5,0.5), 
                                                              (0.5,0.5,0.5))]) 
         data = torch.utils.data.DataLoader(
