@@ -9,7 +9,7 @@ class SGLD_sampler():
     """
     An sampler using stochastic gradient langevin dynamics 
     """
-    def __init__(self, device, noise_std, lr, pixel_size, buffer_size, buffer_percent, buffer_init, buffer_dup_allowed, grad_clipping=False):
+    def __init__(self, device, input_channels, noise_std, lr, pixel_size, buffer_size, buffer_percent, buffer_init, buffer_dup_allowed, grad_clipping=False):
         super(self.__class__, self).__init__()
         self.initial_dist = Uniform(-1 * torch.ones((input_channels, pixel_size, pixel_size)).cuda().to(device),
                                    torch.ones((input_channels, pixel_size, pixel_size)).cuda().to(device))
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     save_version = 'cebm-ss=%s-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-sgld_noise_std=%s-sgld_lr=%s-sgld_num_steps=%s-buffer_size=%d-buffer_percent=%.2f-buffer_init=%s-dup_allowed=%s-reg_alpha=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
-    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, resize=32)
+    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
     (input_channels, im_height, im_width) = img_dims  
     model = eval('CEBM_%sss' % args.ss)
     print('Initialize Model=%s...' % model.__name__)
@@ -247,6 +247,7 @@ if __name__ == "__main__":
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(device=device,
+                                input_channels=input_channels,
                                 noise_std=args.sgld_noise_std,
                                 lr=args.sgld_lr,
                                 pixel_size=im_height,

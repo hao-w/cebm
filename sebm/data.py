@@ -94,7 +94,7 @@ class Flowers102(VisionDataset):
         print('Done.')
         
 
-def load_data(dataset, data_dir, batch_size, train=True, resize=32):
+def load_data(dataset, data_dir, batch_size, train=True):
     """
     load dataset
     """
