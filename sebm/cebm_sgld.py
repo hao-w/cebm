@@ -11,9 +11,9 @@ class SGLD_sampler():
     """
     def __init__(self, device, noise_std, lr, pixel_size, buffer_size, buffer_percent, buffer_init, buffer_dup_allowed, grad_clipping=False):
         super(self.__class__, self).__init__()
-        self.initial_dist = Uniform(-1 * torch.ones((pixel_size, pixel_size)).cuda().to(device),
-                                   torch.ones((pixel_size,pixel_size)).cuda().to(device))
-                        
+        self.initial_dist = Uniform(-1 * torch.ones((input_channels, pixel_size, pixel_size)).cuda().to(device),
+                                   torch.ones((input_channels, pixel_size, pixel_size)).cuda().to(device))
+          
         self.lr = lr
         self.noise_std = noise_std
         self.buffer_size = buffer_size
@@ -21,7 +21,7 @@ class SGLD_sampler():
         self.grad_clipping=grad_clipping
         self.buffer_init = buffer_init
         if self.buffer_init: # whether initialize buffer at the beginning 
-            self.buffer = self.initial_dist.sample((self.buffer_size, 1, ))
+            self.buffer = self.initial_dist.sample((self.buffer_size, ))
             self.buffer_dup_allowed = buffer_dup_allowed
         else:
             self.buffer = None
@@ -35,7 +35,7 @@ class SGLD_sampler():
         which is used in JEM and IGEBM  
         """
         if self.buffer_dup_allowed:
-            samples = self.initial_dist.sample((batch_size, 1, ))
+            samples = self.initial_dist.sample((batch_size, ))
             inds = torch.randint(0, self.buffer_size, (batch_size, ), device=self.device)
             samples_from_buffer = self.buffer[inds]
             rand_mask = (torch.rand(batch_size, device=self.device) < self.buffer_percent)
@@ -44,7 +44,7 @@ class SGLD_sampler():
             inds = int(self.buffer_percent * batch_size)
             self.buffer = self.buffer[torch.randperm(len(self.buffer))]
             samples_from_buffer = self.buffer[:inds]
-            samples_from_init = self.initial_dist.sample((batch_size - inds, 1,))
+            samples_from_init = self.initial_dist.sample((batch_size - inds,))
             samples = torch.cat((samples_from_buffer, samples_from_init), 0)
         assert samples.shape[0] == batch_size, "Samples have unexpected shape."            
         return samples, inds
@@ -95,10 +95,10 @@ class SGLD_sampler():
                 if self.buffer is not None and len(self.buffer) >= batch_size:     
                     samples, _ = self.sample_from_buffer(batch_size)
                 else: 
-                    samples = self.initial_dist.sample((batch_size, 1, ))
+                    samples = self.initial_dist.sample((batch_size, ))
                 inds = None
         else:
-            samples = self.initial_dist.sample((batch_size, 1, ))
+            samples = self.initial_dist.sample((batch_size, ))
         samples = self.nsgd_steps(ebm, samples, num_steps)
         ## refine buffer if pcd
         if pcd:
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     print('Loading dataset=%s...' % args.dataset)
     train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, resize=32)
     (input_channels, im_height, im_width) = img_dims  
-    model = eval('CEBM_%sss' % ss)
+    model = eval('CEBM_%sss' % args.ss)
     print('Initialize Model=%s...' % model.__name__)
     ebm = model(arch=args.arch,
                 optimize_priors=args.optimize_priors,
