@@ -116,7 +116,7 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=32):
                                         transforms.Normalize((0.5,0.5,0.5), 
                                                              (0.5,0.5,0.5))]) 
         data = torch.utils.data.DataLoader(
-                        datasets.CIFAR10(data_dir, train=train, download=True,
+                        datasets.CIFAR10(data_dir+'CIFAR10/', train=train, download=True,
                                        transform=transform),
                         batch_size=batch_size, shuffle=True)
         
@@ -143,7 +143,7 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=32):
                                         transforms.Normalize((0.5,0.5,0.5), 
                                                              (0.5,0.5,0.5))]) 
         data = torch.utils.data.DataLoader(
-                        Flowers102(data_dir, train=train, download=True,
+                        Flowers102(data_dir, download=True,
                                        transform=transform),
                         batch_size=batch_size, shuffle=True)
         
