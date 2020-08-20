@@ -139,7 +139,7 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach() 
-                print('pass!')
+#                print('pass!')
             self.save_checkpoints()
             
 #             torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
