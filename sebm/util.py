@@ -65,6 +65,17 @@ def cnn_output_shape(h, w, kernels, strides, paddings=None):
         h_in, w_in = conv_output_shape((h_in, w_in), kernels[i], strides[i], paddings[i])
     return h_in, w_in
 
+def wres_block_params(stride, swap_cnn):
+    kernels = [3,3]
+    paddings = [1,1]
+    if swap_cnn:
+        strides = [1, stride]
+    else:
+        strides = [stride, 1]
+    return kernels, strides, paddings
+        
+        
+        
 def conv_shape_print(h, w, kernels, strides, last_channel, pad=None):
     if pad is None:
         pad = [0 for i in kernels]

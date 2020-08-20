@@ -1,5 +1,5 @@
 import math
-from sebm.nets import SimpleNet
+from sebm.nets import SimpleNet, Wide_Residual_Net
 import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
@@ -94,6 +94,8 @@ class CEBM_2ss(nn.Module):
         super().__init__()
         if arch == 'simplenet':
             self.ebm_net = SimpleNet(**kwargs)
+        elif arch =='wresnet':
+            self.ebm_net = Wide_Residual_Net(**kwargs)
         else:
             raise NotImplementError # will implement wresnet-28-10 later
             
@@ -149,3 +151,5 @@ class CEBM_2ss(nn.Module):
         B, latent_dim = neural_ss1.shape
         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
+    
+    

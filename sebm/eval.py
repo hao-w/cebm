@@ -5,7 +5,7 @@ from sklearn.manifold import TSNE
 from sebm.data import load_data
 import numpy as np
 
-def plot_samples(images_ebm, fs=10):
+def plot_samples(images_ebm, fs=10, data_name=None):
     test_batch_size = len(images_ebm)
     images_ebm = images_ebm.squeeze().cpu().detach()
     images_ebm = torch.clamp(images_ebm, min=-1, max=1) * 0.5 + 0.5
@@ -20,10 +20,12 @@ def plot_samples(images_ebm, fs=10):
             ax.imshow(np.transpose(images_ebm[i], (1,2,0)), vmin=0, vmax=1.0)
         ax.set_xticks([])
         ax.set_yticks([])
+    if data_name is not None:
+        plt.savefig(data_name + 'samples.png', dpi=300)
         
-def compress_tsne(dataset, data_dir, ebm):
-    print('Loading dataset=%s...' % args.dataset)
-    train_data, img_dims = load_data(dataset, data_dir, 1000, train=False)
+def compress_tsne(dataset, data_dir, ebm, device, data_noise_std):
+    print('Loading dataset=%s...' % dataset)
+    test_data, img_dims = load_data(dataset, data_dir, 1000, train=False)
 #     if dataset == 'mnist':
 #             print('Load MNIST dataset...')
 #             im_height, im_width, input_channels = 28, 28, 1

@@ -138,8 +138,10 @@ class Train_procedure():
                     if key not in metrics:
                         metrics[key] = trace[key].detach()
                     else:
-                        metrics[key] += trace[key].detach()   
+                        metrics[key] += trace[key].detach() 
+                print('pass!')
             self.save_checkpoints()
+            
 #             torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
@@ -171,8 +173,9 @@ class Train_procedure():
         
     def save_checkpoints(self):
         checkpoint_dict  = {
-            'model_state_dict': self.ebm.state_dict(),
-            'replay_buffer': self.sgld_sampler.buffer}
+            'model_state_dict': self.ebm.state_dict()
+#             'replay_buffer': self.sgld_sampler.buffer
+            }
         torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
 
 
@@ -198,7 +201,9 @@ if __name__ == "__main__":
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, type=bool)
     ## arch config
-    parser.add_argument('--arch', default='simplenet', choices=['simplenet'])
+    parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'wresnet'])
+    parser.add_argument('--depth', default=28, type=int)
+    parser.add_argument('--width', default=10, type=int)
     parser.add_argument('--channels', default="[64, 64, 32, 32]")
     parser.add_argument('--kernels', default="[3, 4, 4, 4]")
     parser.add_argument('--strides', default="[1, 2, 2, 2]")
@@ -232,17 +237,27 @@ if __name__ == "__main__":
     ebm = model(arch=args.arch,
                 optimize_priors=args.optimize_priors,
                 device=device,
-                im_height=im_height, 
-                im_width=im_width, 
-                input_channels=input_channels, 
-                channels=eval(args.channels), 
-                kernels=eval(args.kernels), 
-                strides=eval(args.strides), 
-                paddings=eval(args.paddings), 
+                depth=args.depth,
+                width=args.width,
                 hidden_dim=eval(args.hidden_dim),
                 latent_dim=args.latent_dim,
-                activation=args.activation,
-                leak=args.leak)  
+                act=args.activation,
+                leak=args.leak)
+#     
+#     ebm = model(arch=args.arch,
+#                 optimize_priors=args.optimize_priors,
+#                 device=device,
+#                 im_height=im_height, 
+#                 im_width=im_width, 
+#                 input_channels=input_channels, 
+#                 channels=eval(args.channels), 
+#                 kernels=eval(args.kernels), 
+#                 strides=eval(args.strides), 
+#                 paddings=eval(args.paddings), 
+#                 hidden_dim=eval(args.hidden_dim),
+#                 latent_dim=args.latent_dim,
+#                 activation=args.activation,
+#                 leak=args.leak)  
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     print('Initialize sgld sampler...')
