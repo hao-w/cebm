@@ -139,7 +139,7 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach() 
-                print('pass!')
+#                 print('pass!')
             self.save_checkpoints()
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
