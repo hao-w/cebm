@@ -21,7 +21,7 @@ def plot_samples(images_ebm, fs=10, data_name=None):
         ax.set_xticks([])
         ax.set_yticks([])
     if data_name is not None:
-        plt.savefig(data_name + 'samples.png', dpi=300)
+        plt.savefig(data_name + '_samples.png', dpi=300)
         
 def compress_tsne(dataset, data_dir, ebm, device, data_noise_std):
     print('Loading dataset=%s...' % dataset)

@@ -139,10 +139,8 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach() 
-#                print('pass!')
+                print('pass!')
             self.save_checkpoints()
-            
-#             torch.save(ebm.state_dict(), "weights/ebm-%s" % self.save_version)
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
@@ -234,30 +232,34 @@ if __name__ == "__main__":
     (input_channels, im_height, im_width) = img_dims  
     model = eval('CEBM_%sss' % args.ss)
     print('Initialize Model=%s...' % model.__name__)
-    ebm = model(arch=args.arch,
-                optimize_priors=args.optimize_priors,
-                device=device,
-                depth=args.depth,
-                width=args.width,
-                hidden_dim=eval(args.hidden_dim),
-                latent_dim=args.latent_dim,
-                act=args.activation,
-                leak=args.leak)
-#     
-#     ebm = model(arch=args.arch,
-#                 optimize_priors=args.optimize_priors,
-#                 device=device,
-#                 im_height=im_height, 
-#                 im_width=im_width, 
-#                 input_channels=input_channels, 
-#                 channels=eval(args.channels), 
-#                 kernels=eval(args.kernels), 
-#                 strides=eval(args.strides), 
-#                 paddings=eval(args.paddings), 
-#                 hidden_dim=eval(args.hidden_dim),
-#                 latent_dim=args.latent_dim,
-#                 activation=args.activation,
-#                 leak=args.leak)  
+    if args.arch == 'wresnet':
+        ebm = model(arch=args.arch,
+                    optimize_priors=args.optimize_priors,
+                    device=device,
+                    depth=args.depth,
+                    width=args.width,
+                    hidden_dim=eval(args.hidden_dim),
+                    latent_dim=args.latent_dim,
+                    act=args.activation,
+                    leak=args.leak)
+    elif args.arch == 'simplenet':
+        ebm = model(arch=args.arch,
+                    optimize_priors=args.optimize_priors,
+                    device=device,
+                    im_height=im_height, 
+                    im_width=im_width, 
+                    input_channels=input_channels, 
+                    channels=eval(args.channels), 
+                    kernels=eval(args.kernels), 
+                    strides=eval(args.strides), 
+                    paddings=eval(args.paddings), 
+                    hidden_dim=eval(args.hidden_dim),
+                    latent_dim=args.latent_dim,
+                    activation=args.activation,
+                    leak=args.leak)
+    else:
+        raise NotImplementError
+        
     ebm = ebm.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     print('Initialize sgld sampler...')

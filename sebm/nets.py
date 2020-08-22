@@ -56,8 +56,16 @@ def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=None, last_ac
         layers.append(act)
     return nn.Sequential(*layers)
     
+
+class Identity(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+    def forward(self, x):
+        return x
+    
 class SimpleNet(nn.Module):
     """
+    Implementation of a cnn-mlp based network
     """
     def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=None):
         super().__init__()
@@ -67,22 +75,8 @@ class SimpleNet(nn.Module):
     def forward(self, x):
         h = self.cnn_block(x)
         return self.mlp_block(self.flatten(h))
-
     
     
-    
-    
-    
-"""
-Implementation of Wide Residual Network https://arxiv.org/pdf/1605.07146.pdf
-"""
-class Identity(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-    def forward(self, x):
-        return x
-    
-
 class Wres_Block(nn.Module):
     """
     residual block module
@@ -133,6 +127,9 @@ class Wres_Block(nn.Module):
         return out         
     
 class Wide_Residual_Net(nn.Module):
+    """
+        Implementation of Wide Residual Network https://arxiv.org/pdf/1605.07146.pdf
+    """
     def __init__(self, depth, width, im_height=32, im_width=32, input_channels=3, num_classes=10,
                   act='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.05, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
         super(Wide_Residual_Net, self).__init__()
