@@ -153,7 +153,9 @@ class CEBM_2ss(nn.Module):
         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
     
-    
+
+from sebm.gaussian_params import nats_to_params, params_to_nats
+
 class CEBM_test(nn.Module):
     """
     conjugate EBM with latent variable z,
@@ -235,12 +237,12 @@ class CEBM_test(nn.Module):
         """
         return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
     
-    def log_factor(self, sample_size, neural_ss1, neural_ss2, latents):
+    def log_factor(self, neural_ss1, neural_ss2, latents):
         """
         compute the log heuristic factor for the EBM
         log factor of size  S * B 
         """
-        B, latent_dim = neural_ss1.shape
-        assert latents.shape == (B, latent_dim), 'ERROR!'
-        return (neural_ss1.repeat(sample_size, 1, 1) * latents).sum(-1) + (neural_ss2.repeat(sample_size, 1, 1) * (latents**2)).sum(-1)
+#         B, latent_dim = neural_ss1.shape
+#         assert latents.shape == (B, latent_dim), 'ERROR!'
+        return (neural_ss1 * latents).sum(-1) + (neural_ss2 * (latents**2)).sum(-1)
     

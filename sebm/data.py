@@ -148,12 +148,12 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
                                                              (0.5,0.5,0.5))]) 
         if train:
             data = torch.utils.data.DataLoader(
-                            datasets.CelebA(data_dir, train='train', target_type='attr', download=True,
+                            datasets.CelebA(data_dir, split='train', target_type='attr', download=True,
                                            transform=transform),
                             batch_size=batch_size, shuffle=True)
         else:
             data = torch.utils.data.DataLoader(
-                            datasets.CelebA(data_dir, train='valid', taraget_type='attr', download=True,
+                            datasets.CelebA(data_dir, split='test', taraget_type='attr', download=True,
                                            transform=transform),
                             batch_size=batch_size, shuffle=True)            
 
@@ -179,10 +179,36 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
                             batch_size=batch_size, shuffle=True)
         else:
             data = torch.utils.data.DataLoader(
-                            datasets.SVHN(data_dir+'SVHN/', train='valid', download=True,
+                            datasets.SVHN(data_dir+'SVHN/', split='test', download=True,
                                            transform=transform),
                             batch_size=batch_size, shuffle=True)            
+
+    elif dataset == 'imagenet':
+        img_dims = (3, 32, 32)
         
+        if resize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
+                                            transforms.RandomHorizontalFlip(),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        
+        if train:
+            data = torch.utils.data.DataLoader(
+                            datasets.ImageNet(data_dir+'ImageNet/', split='train', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True)
+        else:
+            data = torch.utils.data.DataLoader(
+                            datasets.ImageNet(data_dir+'ImageNet/', split='test', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True) 
+            
     elif dataset == 'flowers102':
         img_dims = (3, 32, 32)
         transform = transforms.Compose([transforms.Resize((32, 32)),

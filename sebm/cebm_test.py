@@ -8,17 +8,14 @@ training procedure for conjugate EBM with latent variable z, using learned propo
 
         
 class Train_procedure():
-    def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, sample_size, regularize_factor, device, save_version):
+    def __init__(self, optimizer, ebm, data_noise_std, train_data, num_epochs, sample_size, regularize_factor, device, save_version):
         super(self.__class__, self).__init__()
         self.optimizer = optimizer
         self.ebm = ebm
-        self.sgld_sampler = sgld_sampler
-        self.sgld_num_steps = sgld_num_steps
         self.data_noise_std = data_noise_std
         self.train_data = train_data
         self.num_epochs = num_epochs
         self.sample_size = sample_size
-#         self.batch_size = batch_size
         self.reg_alpha = regularize_factor
         self.device = device
         self.save_version = save_version
@@ -42,7 +39,6 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach() 
-                print('pass!')
             self.save_checkpoints()
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
@@ -58,20 +54,22 @@ class Train_procedure():
         batch_size, C, pixels_size, _ = images_data.shape
         neural_ss1, neural_ss2 = self.ebm.forward(images_data)
         latents, log_posterior = self.ebm.latent_posterior(self.sample_size, neural_ss1, neural_ss2)
-        log_prior = self.ebm.latent_prior(self.sample_size, batch_size, latents=latents)
+        _, log_prior = self.ebm.latent_prior(self.sample_size, batch_size, latents=latents)
         kl_term = (log_posterior - log_prior).mean()
-        log_f_data = self.ebm.log_factor(self.sample_size, neural_ss1, neural_ss2, latents)
+        log_f_data = self.ebm.log_factor(neural_ss1.repeat(self.sample_size, 1, 1), neural_ss2.repeat(self.sample_size, 1, 1), latents)
         
-        images_neg = # TODO implement negative sampling 
+        images_neg = self.negative_sampling(images_data)
         neural_ss1_neg, neural_ss2_neg = self.ebm.forward(images_neg)
-        log_f_neg = self.ebm.log_factor(self.sample_size, neural_ss1_neg, neural_ss2_neg, latents)
+        log_f_neg = self.ebm.log_factor(neural_ss1_neg.view(self.sample_size, batch_size, -1), neural_ss2_neg.view(self.sample_size, batch_size, -1), latents)
         ull_term = (log_f_data - log_f_neg).mean()
         trace['loss'] = - ull_term + kl_term
         return trace
     
-    def negative_sampling(self, batch):
-        
-    
+    def negative_sampling(self, images_data):
+        batch_size, C, pixels_size, _ = images_data.shape
+        inds = torch.randint(0, batch_size, (self.sample_size*batch_size,), device=self.device)
+        negative_samples = images_data[inds]
+        return negative_samples
     
     def logging(self, metrics, N, epoch):
         if epoch == 0:
@@ -87,7 +85,7 @@ class Train_procedure():
             'model_state_dict': self.ebm.state_dict()
 #             'replay_buffer': self.sgld_sampler.buffer
             }
-        torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
+        torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
 
     
@@ -102,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'svhn', 'cifar100', 'celeba', 'flowers102'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'svhn', 'cifar100', 'imagenet', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--sample_size', default=10, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
@@ -112,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, type=bool)
     ## arch config
+    parser.add_argument('--reparameterized', default=False, action='store_true')
     parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'wresnet'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
@@ -130,7 +129,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm-ss=%s-dataset=%s-seed=%d-lr=%s-latentdim=%d-data_noise_std=%s-reg_alpha=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm_test_%sss-d=%s-seed=%d-lr=%s-zd=%d-data_ns=%s-reg=%s-reparam=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.regularize_factor, args.reparameterized, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
     train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
@@ -140,6 +139,7 @@ if __name__ == "__main__":
     ebm = model(arch=args.arch,
                 optimize_priors=args.optimize_priors,
                 device=device,
+                reparameterized=args.reparameterized,
                 im_height=im_height, 
                 im_width=im_width, 
                 input_channels=input_channels, 

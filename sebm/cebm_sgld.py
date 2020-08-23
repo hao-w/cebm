@@ -190,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'celeba', 'flowers102'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=1e-2, type=float)
@@ -220,6 +220,7 @@ if __name__ == "__main__":
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_lr', default=1.0, type=float)
     parser.add_argument('--sgld_num_steps', default=50, type=int)
+    parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
     args = parser.parse_args()
@@ -271,7 +272,8 @@ if __name__ == "__main__":
                                 buffer_size=args.buffer_size,
                                 buffer_percent=args.buffer_percent,
                                 buffer_init=args.buffer_init,
-                                buffer_dup_allowed=args.buffer_dup_allowed)
+                                buffer_dup_allowed=args.buffer_dup_allowed,
+                                grad_clipping=args.grad_clipping)
     
     print('Start training...')
     trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.batch_size, args.regularize_factor, device, save_version)
