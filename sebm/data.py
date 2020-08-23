@@ -156,6 +156,32 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
                             datasets.CelebA(data_dir, train='valid', taraget_type='attr', download=True,
                                            transform=transform),
                             batch_size=batch_size, shuffle=True)            
+
+    elif dataset == 'svhn':
+        img_dims = (3, 32, 32)
+        
+        if resize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
+                                            transforms.RandomHorizontalFlip(),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        
+        if train:
+            data = torch.utils.data.DataLoader(
+                            datasets.SVHN(data_dir+'SVHN/', split='train', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True)
+        else:
+            data = torch.utils.data.DataLoader(
+                            datasets.SVHN(data_dir+'SVHN/', train='valid', download=True,
+                                           transform=transform),
+                            batch_size=batch_size, shuffle=True)            
         
     elif dataset == 'flowers102':
         img_dims = (3, 32, 32)

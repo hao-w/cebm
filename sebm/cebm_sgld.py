@@ -174,7 +174,7 @@ class Train_procedure():
             'model_state_dict': self.ebm.state_dict()
 #             'replay_buffer': self.sgld_sampler.buffer
             }
-        torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
+        torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
 
     
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'celeba', 'flowers102'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=1e-2, type=float)

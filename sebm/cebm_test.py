@@ -69,6 +69,9 @@ class Train_procedure():
         trace['loss'] = - ull_term + kl_term
         return trace
     
+    def negative_sampling(self, batch):
+        
+    
     
     def logging(self, metrics, N, epoch):
         if epoch == 0:
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'celeba', 'flowers102'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'svhn', 'cifar100', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--sample_size', default=10, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
