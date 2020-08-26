@@ -94,16 +94,20 @@ class Flowers102(VisionDataset):
         print('Done.')
         
 
-def load_data(dataset, data_dir, batch_size, train=True, resize=True):
+def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=True):
     """
     load dataset
     """
+    print('Note: downsampling function is %s' % transforms.Resize(1))
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
     if dataset == 'mnist':
         img_dims = (1, 28, 28)
-        transform = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Normalize((0.5,),(0.5,))]) 
+        if normalize:
+            transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+        else:
+            transform = transforms.Compose([transforms.ToTensor()])
         data = torch.utils.data.DataLoader(
                         datasets.MNIST(data_dir, train=train, download=True,
                                        transform=transform),
@@ -111,19 +115,15 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
         
     elif dataset == 'cifar10':
         img_dims = (3, 32, 32)
-        
-        if resize:
+        if normalize:
             transform = transforms.Compose([transforms.Resize((32,32)),
                                             transforms.ToTensor(),
                                             transforms.Normalize((0.5,0.5,0.5), 
                                                                  (0.5,0.5,0.5))])
         else:
-            transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
-                                            transforms.RandomHorizontalFlip(),
-                                            transforms.ToTensor(),
-                                            transforms.Normalize((0.5,0.5,0.5), 
-                                                                 (0.5,0.5,0.5))])
-        
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])            
+
         data = torch.utils.data.DataLoader(
                         datasets.CIFAR10(data_dir+'CIFAR10/', train=train, download=True,
                                        transform=transform),
@@ -131,10 +131,15 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
         
     elif dataset == 'cifar100':
         img_dims = (3, 32, 32)
-        transform = transforms.Compose([transforms.Resize((32,32)),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize((0.5,0.5,0.5), 
-                                                             (0.5,0.5,0.5))]) 
+        
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
         data = torch.utils.data.DataLoader(
                         datasets.CIFAR10(data_dir+'CIFAR100/', train=train, download=True,
                                        transform=transform),
@@ -142,10 +147,14 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
         
     elif dataset == 'celeba':
         img_dims = (3, 32, 32)
-        transform = transforms.Compose([transforms.Resize((32,32)),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize((0.5,0.5,0.5), 
-                                                             (0.5,0.5,0.5))]) 
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
         if train:
             data = torch.utils.data.DataLoader(
                             datasets.CelebA(data_dir, split='train', target_type='attr', download=True,
@@ -159,18 +168,14 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
 
     elif dataset == 'svhn':
         img_dims = (3, 32, 32)
-        
-        if resize:
+        if normalize:
             transform = transforms.Compose([transforms.Resize((32,32)),
                                             transforms.ToTensor(),
                                             transforms.Normalize((0.5,0.5,0.5), 
                                                                  (0.5,0.5,0.5))])
         else:
-            transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
-                                            transforms.RandomHorizontalFlip(),
-                                            transforms.ToTensor(),
-                                            transforms.Normalize((0.5,0.5,0.5), 
-                                                                 (0.5,0.5,0.5))])
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
         
         if train:
             data = torch.utils.data.DataLoader(
@@ -185,18 +190,14 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
 
     elif dataset == 'imagenet':
         img_dims = (3, 32, 32)
-        
-        if resize:
+        if normalize:
             transform = transforms.Compose([transforms.Resize((32,32)),
                                             transforms.ToTensor(),
                                             transforms.Normalize((0.5,0.5,0.5), 
                                                                  (0.5,0.5,0.5))])
         else:
-            transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
-                                            transforms.RandomHorizontalFlip(),
-                                            transforms.ToTensor(),
-                                            transforms.Normalize((0.5,0.5,0.5), 
-                                                                 (0.5,0.5,0.5))])
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
         
         if train:
             data = torch.utils.data.DataLoader(
@@ -211,10 +212,14 @@ def load_data(dataset, data_dir, batch_size, train=True, resize=True):
             
     elif dataset == 'flowers102':
         img_dims = (3, 32, 32)
-        transform = transforms.Compose([transforms.Resize((32, 32)),
-                                        transforms.ToTensor(), 
-                                        transforms.Normalize((0.5,0.5,0.5), 
-                                                             (0.5,0.5,0.5))]) 
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
         data = torch.utils.data.DataLoader(
                         Flowers102(data_dir, download=True,
                                        transform=transform),

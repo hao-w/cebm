@@ -1,8 +1,11 @@
 import math
-from sebm.nets import SimpleNet, Wide_Residual_Net
+from sebm.nets import SimpleNet, SimpleNet2, SimpleNet3, MLPNet, MLPNet2, Wide_Residual_Net, _mlp_block
 import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
+from torch.distributions.bernoulli import Bernoulli
+from sebm.gaussian_params import nats_to_params, params_to_nats
+
 
 class EBM(nn.Module):
     """
@@ -92,7 +95,9 @@ class CEBM_2ss(nn.Module):
     """
     def __init__(self, arch, optimize_priors, device, **kwargs):
         super().__init__()
-        if arch == 'simplenet':
+        if arch == 'simplenet2':
+            self.ebm_net = SimpleNet2(**kwargs)
+        elif arch == 'simplenet':
             self.ebm_net = SimpleNet(**kwargs)
         elif arch =='wresnet':
             self.ebm_net = Wide_Residual_Net(**kwargs)
@@ -107,8 +112,8 @@ class CEBM_2ss(nn.Module):
             self.prior_nat2 = nn.Parameter(self.prior_nat2)
             
     def forward(self, x):
-        neural_ss1 = self.ebm_net(x)
-        neural_ss2 = - neural_ss1**2
+        neural_ss1, neg_log_neural_ss2 = self.ebm_net(x)
+        neural_ss2 = - neg_log_neural_ss2.exp()
         return neural_ss1, neural_ss2
     
     def energy(self, x):
@@ -128,7 +133,7 @@ class CEBM_2ss(nn.Module):
         assert logA_posterior.shape == (neural_ss1.shape[0], neural_ss1.shape[1]), 'unexpected shape.'
         return logA_prior.sum(0) - logA_posterior.sum(1)   
     
-    def sample_z_prior(self, sample_size, batch_size):
+    def sample_prior(self, sample_size, batch_size):
         """
         return samples from prior of size S * B * latent_dim
         and log_prob of size S * B
@@ -153,8 +158,17 @@ class CEBM_2ss(nn.Module):
         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
     
+    
+    def sample_posterior(self, sample_size, neural_ss1, neural_ss2):
+        """
+        return samples from the conjugate posterior
+        """
+        posterior_mu, posterior_sigma = nats_to_params(self.prior_nat1+neural_ss1, self.prior_nat2+neural_ss2)
+        posterior_dist = Normal(posterior_mu, posterior_sigma) 
+        latents = posterior_dist.sample((sample_size, ))
+        return latents, posterior_dist.log_prob(latents).sum(-1)
+    
 
-from sebm.gaussian_params import nats_to_params, params_to_nats
 
 class CEBM_test(nn.Module):
     """
@@ -186,7 +200,7 @@ class CEBM_test(nn.Module):
         neural_ss2 = - neural_ss1**2
         return neural_ss1, neural_ss2
     
-    def energy(self, x):
+    def energy(self, neural_ss1, neural_ss2):
         """
         compute the energy function w.r.t. either data distribution 
         or model distribution
@@ -196,7 +210,7 @@ class CEBM_test(nn.Module):
         
         argument: dist = 'data' or 'ebm'
         """
-        neural_ss1, neural_ss2 = self.forward(x)
+#         neural_ss1, neural_ss2 = self.forward(x)
         logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
         logA_posterior = self.log_partition(self.prior_nat1+neural_ss1, self.prior_nat2+neural_ss2)
         assert logA_prior.shape == (neural_ss1.shape[1],), 'unexpected shape.'
@@ -246,3 +260,63 @@ class CEBM_test(nn.Module):
 #         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(-1) + (neural_ss2 * (latents**2)).sum(-1)
     
+
+class Decoder(nn.Module):
+    """
+    A decoder in VAE
+    """
+    def __init__(self, arch, device, **kwargs):
+        super(self.__class__, self).__init__()
+        if arch == 'simplenet2':
+            self.dec_net = SimpleNet3(**kwargs)
+            self.latent_dim = kwargs['latent_dim']
+        elif arch == 'mlp':
+            self.dec_net = MLPNet(**kwargs)
+            self.latent_dim = kwargs['input_dim']
+        else:
+            raise NotImplementError
+        self.sigmoid = nn.Sigmoid()
+        self.arch = arch
+        
+        self.prior_mu = torch.zeros(self.latent_dim).cuda().to(device)
+        self.prior_sigma = torch.ones(self.latent_dim).cuda().to(device)
+        
+    def forward(self, latents, images):
+#         p_log_prob = 0.0
+        recons = self.sigmoid(self.dec_net(latents))
+        if self.arch == 'simplenet2':
+            recons = recons.squeeze().view(-1, recons.shape[-1]*recons.shape[-1])
+            images = images.squeeze().view(-1, images.shape[-1]*images.shape[-1])
+        p_log_prob = Normal(self.prior_mu, self.prior_sigma).log_prob(latents).sum(-1)
+        assert recons.shape == images.shape, 'shape of recons : %s, shape of images : %s' % (recons.shape, images.shape)
+        ll = - self.binary_cross_entropy(recons, images)
+        return recons, ll, p_log_prob
+            
+    def binary_cross_entropy(self, x_mean, x, EPS=1e-9):
+        return - (torch.log(x_mean + EPS) * x + 
+                  torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1)
+    
+class Encoder(nn.Module):
+    """
+    An encoder in VAE
+    """
+    def __init__(self, arch, reparameterized, **kwargs):
+        super(self.__class__, self).__init__()
+        
+        if arch == 'simplenet2':
+             self.enc_net = SimpleNet2(**kwargs)
+        elif arch == 'mlp':
+            self.enc_net = MLPNet2(**kwargs)
+        else:
+            raise NotImplementError
+        self.reparameterized = reparameterized
+        
+    def forward(self, images):
+        mu, log_sigma = self.enc_net(images)
+        q_dist = Normal(mu, log_sigma.exp())
+        if self.reparameterized:
+            latents = q_dist.rsample()
+        else:
+            latents = q_dist.sample()
+        log_prob = q_dist.log_prob(latents).sum(-1)
+        return latents, log_prob

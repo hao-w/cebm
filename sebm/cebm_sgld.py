@@ -106,7 +106,7 @@ class SGLD_sampler():
         return samples
         
 class Train_procedure():
-    def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, batch_size, regularize_factor, device, save_version):
+    def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, sample_size, regularize_factor, device, save_version):
         super(self.__class__, self).__init__()
         self.optimizer = optimizer
         self.ebm = ebm
@@ -115,7 +115,7 @@ class Train_procedure():
         self.data_noise_std = data_noise_std
         self.train_data = train_data
         self.num_epochs = num_epochs
-        self.batch_size = batch_size
+        self.sample_size = sample_size
         self.reg_alpha = regularize_factor
         self.device = device
         self.save_version = save_version
@@ -192,6 +192,7 @@ if __name__ == "__main__":
     ## data config
     parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102'])
     parser.add_argument('--data_dir', default=None, type=str)
+    parser.add_argument('--sample_size', default=1, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=1e-2, type=float)
     ## optim config
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, type=bool)
     ## arch config
-    parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'wresnet'])
+    parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'simplenet2', 'wresnet'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
     parser.add_argument('--channels', default="[64, 64, 32, 32]")
@@ -258,6 +259,22 @@ if __name__ == "__main__":
                     latent_dim=args.latent_dim,
                     activation=args.activation,
                     leak=args.leak)
+    elif args.arch == 'simplenet2':
+        ebm = model(arch=args.arch,
+                    optimize_priors=args.optimize_priors,
+                    device=device,
+                    im_height=im_height, 
+                    im_width=im_width, 
+                    input_channels=input_channels, 
+                    channels=eval(args.channels), 
+                    kernels=eval(args.kernels), 
+                    strides=eval(args.strides), 
+                    paddings=eval(args.paddings), 
+                    hidden_dim=eval(args.hidden_dim),
+                    latent_dim=args.latent_dim,
+                    activation=args.activation,
+                    leak=args.leak)
+        
     else:
         raise NotImplementError
         
@@ -276,5 +293,5 @@ if __name__ == "__main__":
                                 grad_clipping=args.grad_clipping)
     
     print('Start training...')
-    trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.batch_size, args.regularize_factor, device, save_version)
+    trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.sample_size, args.regularize_factor, device, save_version)
     trainer.train()

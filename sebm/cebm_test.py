@@ -44,6 +44,8 @@ class Train_procedure():
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
 
+
+    
     def jkl(self, images_data):
         """
         objective: - ull_term + kl_term
@@ -62,7 +64,9 @@ class Train_procedure():
         neural_ss1_neg, neural_ss2_neg = self.ebm.forward(images_neg)
         log_f_neg = self.ebm.log_factor(neural_ss1_neg.view(self.sample_size, batch_size, -1), neural_ss2_neg.view(self.sample_size, batch_size, -1), latents)
         ull_term = (log_f_data - log_f_neg).mean()
-        trace['loss'] = - ull_term + kl_term
+        trace['loss'] = - ull_term + kl_term + self.reg_alpha * ((neural_ss1**2).mean()+(neural_ss1_neg**2).mean())
+        trace['ll'] = ull_term.detach()
+        trace['kl'] = kl_term.detach()
         return trace
     
     def negative_sampling(self, images_data):
