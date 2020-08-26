@@ -113,11 +113,11 @@ class CEBM_2ss(nn.Module):
         self.sp = nn.Softplus()
             
     def forward(self, x):
-        neural_ss1, neural_ss2 = self.ebm_net(x)
-#         neural_ss2 = - neg_log_neural_ss2.exp()
-#         neural_ss1 = self.ebm_net(x)
-#         neural_ss2 = - neural_ss1**2
-        return neural_ss1, - self.sp(neural_ss2)
+#         neural_ss1, neural_ss2 = self.ebm_net(x)
+#         return neural_ss1, - self.sp(neural_ss2)
+        neural_ss1 = self.ebm_net(x)
+        neural_ss2 = - neural_ss1**2
+        return neural_ss1, neural_ss2
     
     def energy(self, x):
         """
