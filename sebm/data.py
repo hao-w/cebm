@@ -94,6 +94,27 @@ class Flowers102(VisionDataset):
         print('Done.')
         
 
+def load_mnist_heldout(data_dir, batch_size, heldout_class, train=True, normalize=True, resize=True):
+    """
+    load dataset
+    """
+    print('Note: downsampling function is %s' % transforms.Resize(1))
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
+    img_dims = (1, 28, 28)
+    if normalize:
+        transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+    else:
+        transform = transforms.Compose([transforms.ToTensor()])
+    dataset = datasets.MNIST(data_dir, train=train, download=True,
+                                       transform=transform)
+    inds = dataset.targets != heldout_class
+    dataset.targets = dataset.targets[inds]
+    dataset.data = dataset.data[inds]
+    data = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True) 
+    return data, img_dims
+        
 def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=True):
     """
     load dataset

@@ -181,7 +181,7 @@ class Train_procedure():
 if __name__ == "__main__":
     import torch
     import argparse
-    from sebm.data import load_data  
+    from sebm.data import load_data, load_mnist_heldout
     from sebm.models import CEBM_1ss, CEBM_2ss
     from util import set_seed
     parser = argparse.ArgumentParser('Conjugate EBM')
@@ -224,13 +224,19 @@ if __name__ == "__main__":
     parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
+    parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
+
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm_%sss-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld_ns=%s-sgld_lr=%s-sgld_steps=%s-b_size=%d-b_freq=%.2f-b_init=%s-dup=%s-reg=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.buffer_init, args.buffer_dup_allowed, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm_%sss-out=%s-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-b-size=%d-freq=%.2f-reg=%s-act=%s-arch=%s' % (args.ss, args.heldout_class, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.buffer_size, args.buffer_percent, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
-    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
+    if args.heldout_class == -1:
+        train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
+    else:
+        print('hold out class=%s' % args.heldout_class)
+        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=False)
     (input_channels, im_height, im_width) = img_dims  
     model = eval('CEBM_%sss' % args.ss)
     print('Initialize Model=%s...' % model.__name__)

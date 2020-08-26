@@ -63,7 +63,7 @@ class Train_procedure():
         """
         trace = dict()
         latents, q_log_prob = self.enc.forward(images)
-        recon, ll, p_log_prob = self.dec.forward(latents, images, self.sample_size)
+        recon, ll, p_log_prob = self.dec.forward(latents, images)
         log_w = (ll + p_log_prob - q_log_prob)
         trace['elbo'] = log_w.mean()
         return trace 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     import argparse
     from util import set_seed
     from sebm.models import Encoder, Decoder
-    from sebm.data import load_data
+    from sebm.data import load_data, load_mnist_heldout
     parser = argparse.ArgumentParser('VAE')
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--device', default=0, type=int)
@@ -98,16 +98,22 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim2', default="[128]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='ReLU')
+    parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'vae-d=%s-seed=%s-lr=%s-zd=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.activation, args.arch) 
+        
+    save_version = 'vae-out=%s-d=%s-seed=%s-lr=%s-zd=%s-act=%s-arch=%s' % (args.heldout_class, args.dataset, args.seed, args.lr, args.latent_dim, args.activation, args.arch) 
     ## data directory
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
-    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, normalize=False)
+    if args.heldout_class == -1:
+        train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, normalize=False)
+    else:
+        print('hold out class=%s' % args.heldout_class)
+        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=False)
     (input_channels, im_height, im_width) = img_dims  
     
     print('Initialize VAE...')
@@ -125,7 +131,6 @@ if __name__ == "__main__":
                       latent_dim=args.latent_dim,
                       activation=args.activation,
                       leak=None)
-#         print(enc)
         dec = Decoder(arch=args.arch,
                       device=args.device,
                       input_channels=input_channels, 
