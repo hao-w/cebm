@@ -111,6 +111,7 @@ class SimpleNet2(nn.Module):
         self.flatten = nn.Flatten()
         self.mlp_block1 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
         self.mlp_block2 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
+#         self.sp = nn.SoftPlus()
     def forward(self, x):
         h = self.cnn_block(x)
         return self.mlp_block1(self.flatten(h)), self.mlp_block2(self.flatten(h))
