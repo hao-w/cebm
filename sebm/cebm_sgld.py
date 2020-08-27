@@ -53,15 +53,18 @@ class SGLD_sampler():
         """
         perform noisy gradient descent steps and return updated samples 
         """
+        list_samples = []
         for l in range(num_steps):
             samples.requires_grad = True
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
+#             if (l+1) % 20 == 0:
+#                 list_samples.append(samples.unsqueeze(0).detach())
         samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
         assert samples.requires_grad == False, "samples should not require gradient."
-        return samples 
+        return samples
     
     def refine_buffer(self, samples, inds):
         """
@@ -236,7 +239,7 @@ if __name__ == "__main__":
         train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
     else:
         print('hold out class=%s' % args.heldout_class)
-        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=False)
+        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=True)
     (input_channels, im_height, im_width) = img_dims  
     model = eval('CEBM_%sss' % args.ss)
     print('Initialize Model=%s...' % model.__name__)

@@ -10,11 +10,33 @@ def plot_samples(images, fs=10, data_name=None):
     test_batch_size = len(images)
     images = images.squeeze().cpu().detach()
     images = torch.clamp(images, min=-1, max=1)
-    if images.min() < 0.0:
-        images = images * 0.5 + 0.5
+    images = images * 0.5 + 0.5
     gs = gridspec.GridSpec(int(test_batch_size/10), 10)
     gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
     fig = plt.figure(figsize=(fs, fs*int(test_batch_size/10)/ 10))
+    for i in range(test_batch_size):
+        ax = fig.add_subplot(gs[int(i/10), i%10])
+        try:
+            ax.imshow(images[i], cmap='gray', vmin=0, vmax=1.0)
+        except:
+            ax.imshow(np.transpose(images[i], (1,2,0)), vmin=0, vmax=1.0)
+        ax.set_axis_off()
+        ax.set_xticks([])
+        ax.set_yticks([])
+    if data_name is not None:
+        plt.savefig('samples/' + data_name + '_samples.png', dpi=300)
+        plt.close()
+        
+        
+def plot_samples_vae(images, recons, fs=10, data_name=None):
+    test_batch_size = len(images)
+    images = images.squeeze().cpu().detach()
+    images = torch.clamp(images, min=-1, max=1)
+    if images.min() < 0.0:
+        images = images * 0.5 + 0.5
+    gs = gridspec.GridSpec(int(test_batch_size/10)*2, 10)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
+    fig = plt.figure(figsize=(fs, fs*int(test_batch_size/10)*2 / 10))
     for i in range(test_batch_size):
         ax = fig.add_subplot(gs[int(i/10), i%10])
         try:
