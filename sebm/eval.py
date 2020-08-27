@@ -6,6 +6,21 @@ from sebm.data import load_data
 from sebm.gaussian_params import nats_to_params
 import numpy as np
 
+def ll_hist(dataset, data_dir, ebm, device, data_noise_std):
+    print('Loading dataset=%s...' % dataset)
+    test_data, img_dims = load_data(dataset, data_dir, 1000, train=False)
+    LLs = []
+    print('run test set..')
+    for (images, labels) in test_data:
+        images = images.cuda().to(device)
+        images = images + data_noise_std * torch.randn_like(images)
+        neural_ss1, neural_ss2 = ebm.forward(images)
+        latents, _ = ebm.sample_posterior(1, neural_ss1, neural_ss2)
+        ll = ebm.log_factor(neural_ss1, neural_ss2, latents.squeeze())
+        LLs.append(ll.cpu().detach().numpy())
+    LLs = np.concatenate(LLs, 0)
+    return LLs
+
 def plot_samples(images, fs=10, data_name=None):
     test_batch_size = len(images)
     images = images.squeeze().cpu().detach()
@@ -31,20 +46,27 @@ def plot_samples(images, fs=10, data_name=None):
 def plot_samples_vae(images, recons, fs=10, data_name=None):
     test_batch_size = len(images)
     images = images.squeeze().cpu().detach()
-    images = torch.clamp(images, min=-1, max=1)
-    if images.min() < 0.0:
-        images = images * 0.5 + 0.5
+    recons = recons.squeeze().cpu().detach()
     gs = gridspec.GridSpec(int(test_batch_size/10)*2, 10)
     gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
     fig = plt.figure(figsize=(fs, fs*int(test_batch_size/10)*2 / 10))
     for i in range(test_batch_size):
-        ax = fig.add_subplot(gs[int(i/10), i%10])
+        ax = fig.add_subplot(gs[int(i/10)*2, i%10])
         try:
             ax.imshow(images[i], cmap='gray', vmin=0, vmax=1.0)
         except:
             ax.imshow(np.transpose(images[i], (1,2,0)), vmin=0, vmax=1.0)
         ax.set_xticks([])
         ax.set_yticks([])
+        
+        ax = fig.add_subplot(gs[int(i/10)*2+1, i%10])
+        try:
+            ax.imshow(recons[i], cmap='gray', vmin=0, vmax=1.0)
+        except:
+            ax.imshow(np.transpose(recons[i], (1,2,0)), vmin=0, vmax=1.0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
     if data_name is not None:
         plt.savefig(data_name + '_samples.png', dpi=300)
         
@@ -92,9 +114,11 @@ def plot_tsne(num_classes, zs2, ys, save_name):
     if save_name is not None:
         plt.savefig(save_name + '_tsne.png', dpi=300)
         
-def compress_tsne_vae(test_data, enc, device):
+def compress_tsne_vae(dataset, data_dir, enc, device):
     zs = []
     ys = []
+    print('Loading dataset=%s...' % dataset)
+    test_data, _ = load_data(dataset, data_dir, 1000, train=False, normalize=False)
     print('run test set..')
     for (images, labels) in test_data:
         images = images.cuda().to(device)
@@ -106,3 +130,19 @@ def compress_tsne_vae(test_data, enc, device):
     print('transform latent to 2D tsne features..')
     zs2 = TSNE().fit_transform(zs)
     return zs2, ys
+
+
+def ll_hist_vae(dataset, data_dir, enc, dec, device, sample_size):
+    print('Loading dataset=%s...' % dataset)
+    test_data, im_dims = load_data(dataset, data_dir, 1000, train=False, normalize=False)
+    (input_c, im_h, im_w) = im_dims
+    LLs = []
+    print('run test set..')
+    for (images, labels) in test_data:
+        batch_size = images.shape[0]
+        images = images.repeat(sample_size, 1, 1, 1, 1).view(sample_size*batch_size, input_c, im_h, im_w).cuda().to(device)
+        latents, _ = enc.forward(images)
+        _, ll, _ = dec.forward(latents, images)
+        LLs.append(ll.cpu().detach().numpy())
+    LLs = np.concatenate(LLs, 0)
+    return LLs

@@ -133,6 +133,18 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
                         datasets.MNIST(data_dir, train=train, download=True,
                                        transform=transform),
                         batch_size=batch_size, shuffle=True) 
+
+    elif dataset == 'fashionmnist':
+        img_dims = (1, 28, 28)
+        if normalize:
+            transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+        else:
+            transform = transforms.Compose([transforms.ToTensor()])
+        data = torch.utils.data.DataLoader(
+                        datasets.FashionMNIST(data_dir, train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=True) 
         
     elif dataset == 'cifar10':
         img_dims = (3, 32, 32)
