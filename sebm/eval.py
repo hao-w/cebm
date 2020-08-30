@@ -48,7 +48,7 @@ def plot_samples_vae(images, recons, fs=10, data_name=None):
     images = images.squeeze().cpu().detach()
     recons = recons.squeeze().cpu().detach()
     gs = gridspec.GridSpec(int(test_batch_size/10)*2, 10)
-    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.2, hspace=0.2)
     fig = plt.figure(figsize=(fs, fs*int(test_batch_size/10)*2 / 10))
     for i in range(test_batch_size):
         ax = fig.add_subplot(gs[int(i/10)*2, i%10])

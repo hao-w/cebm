@@ -193,7 +193,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default=0, type=int)
 #     parser.add_argument('--exp_name', default=None)
     ## data config
-    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102'])
+    parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102', 'fashionmnist'])
     parser.add_argument('--data_dir', default=None, type=str)
     parser.add_argument('--sample_size', default=1, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
