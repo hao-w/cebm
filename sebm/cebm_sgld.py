@@ -2,6 +2,7 @@ import torch
 from torch.distributions.normal import Normal
 from torch.distributions.uniform import Uniform
 import time
+from sebm.models import CEBM_1ss, CEBM_2ss
 """
 training procedure for conjugate EBM with latent variable z, using SGLD for sampling from model distribution.
 """
@@ -49,7 +50,7 @@ class SGLD_sampler():
         assert samples.shape[0] == batch_size, "Samples have unexpected shape."            
         return samples, inds
 
-    def nsgd_steps(self, ebm, samples, num_steps):
+    def nsgd_steps(self, ebm, samples, num_steps, ):
         """
         perform noisy gradient descent steps and return updated samples 
         """
@@ -60,11 +61,11 @@ class SGLD_sampler():
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
-#             if (l+1) % 20 == 0:
-#                 list_samples.append(samples.unsqueeze(0).detach())
+            if (l+1) % 20 == 0:
+                list_samples.append(samples.unsqueeze(0).detach())
         samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
         assert samples.requires_grad == False, "samples should not require gradient."
-        return samples
+        return samples, torch.cat(list_samples, 0)
     
     def refine_buffer(self, samples, inds):
         """
@@ -102,11 +103,11 @@ class SGLD_sampler():
                 inds = None
         else:
             samples = self.initial_dist.sample((batch_size, ))
-        samples = self.nsgd_steps(ebm, samples, num_steps)
+        samples, list_samples = self.nsgd_steps(ebm, samples, num_steps)
         ## refine buffer if pcd
         if pcd:
             self.refine_buffer(samples, inds)
-        return samples
+        return samples, list_samples
         
 class Train_procedure():
     def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, sample_size, regularize_factor, device, save_version):
@@ -142,7 +143,6 @@ class Train_procedure():
                         metrics[key] = trace[key].detach()
                     else:
                         metrics[key] += trace[key].detach() 
-#                 print('pass!')
             self.save_checkpoints()
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
@@ -180,7 +180,12 @@ class Train_procedure():
         torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
 
-    
+def init_cebm(arch, ss, optimize_priors, device, **kwargs):
+    model = eval('CEBM_%sss' % ss)
+    print('Initialize Model=%s...' % model.__name__)
+    ebm = model(arch, optimize_priors, device, **kwargs)
+    return ebm
+
 if __name__ == "__main__":
     import torch
     import argparse
@@ -241,49 +246,33 @@ if __name__ == "__main__":
         print('hold out class=%s' % args.heldout_class)
         train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=True)
     (input_channels, im_height, im_width) = img_dims  
-    model = eval('CEBM_%sss' % args.ss)
-    print('Initialize Model=%s...' % model.__name__)
     if args.arch == 'wresnet':
-        ebm = model(arch=args.arch,
-                    optimize_priors=args.optimize_priors,
-                    device=device,
-                    depth=args.depth,
-                    width=args.width,
-                    hidden_dim=eval(args.hidden_dim),
-                    latent_dim=args.latent_dim,
-                    act=args.activation,
-                    leak=args.leak)
-    elif args.arch == 'simplenet':
-        ebm = model(arch=args.arch,
-                    optimize_priors=args.optimize_priors,
-                    device=device,
-                    im_height=im_height, 
-                    im_width=im_width, 
-                    input_channels=input_channels, 
-                    channels=eval(args.channels), 
-                    kernels=eval(args.kernels), 
-                    strides=eval(args.strides), 
-                    paddings=eval(args.paddings), 
-                    hidden_dim=eval(args.hidden_dim),
-                    latent_dim=args.latent_dim,
-                    activation=args.activation,
-                    leak=args.leak)
-    elif args.arch == 'simplenet2':
-        ebm = model(arch=args.arch,
-                    optimize_priors=args.optimize_priors,
-                    device=device,
-                    im_height=im_height, 
-                    im_width=im_width, 
-                    input_channels=input_channels, 
-                    channels=eval(args.channels), 
-                    kernels=eval(args.kernels), 
-                    strides=eval(args.strides), 
-                    paddings=eval(args.paddings), 
-                    hidden_dim=eval(args.hidden_dim),
-                    latent_dim=args.latent_dim,
-                    activation=args.activation,
-                    leak=args.leak)
-        
+        ebm = init_cebm(arch=args.arch,
+                        ss=args.ss,
+                        optimize_priors=args.optimize_priors,
+                        device=device,
+                        depth=args.depth,
+                        width=args.width,
+                        hidden_dim=eval(args.hidden_dim),
+                        latent_dim=args.latent_dim,
+                        act=args.activation,
+                        leak=args.leak)
+    elif args.arch == 'simplenet' or args.arch == 'simplenet2':
+        ebm = init_cebm(arch=args.arch,
+                        ss=args.ss,
+                        optimize_priors=args.optimize_priors,
+                        device=device,
+                        im_height=im_height, 
+                        im_width=im_width, 
+                        input_channels=input_channels, 
+                        channels=eval(args.channels), 
+                        kernels=eval(args.kernels), 
+                        strides=eval(args.strides), 
+                        paddings=eval(args.paddings), 
+                        hidden_dim=eval(args.hidden_dim),
+                        latent_dim=args.latent_dim,
+                        activation=args.activation,
+                        leak=args.leak)
     else:
         raise NotImplementError
         

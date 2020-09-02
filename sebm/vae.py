@@ -166,7 +166,9 @@ if __name__ == "__main__":
     enc = enc.cuda().to(device)
     dec = dec.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(enc.parameters())+list(dec.parameters()), lr=args.lr)
-
+    print('Loading trained models...')
+    enc.load_state_dict(torch.load('weights/cp-%s' % save_version)['enc_state_dict'])
+    dec.load_state_dict(torch.load('weights/cp-%s' % save_version)['dec_state_dict'])
     print('Start training...')
     trainer = Train_procedure(optimizer, enc, dec, args.arch, train_data, args.num_epochs, args.sample_size, device, save_version)
     trainer.train()

@@ -216,7 +216,7 @@ class Wide_Residual_Net(nn.Module):
         Implementation of Wide Residual Network https://arxiv.org/pdf/1605.07146.pdf
     """
     def __init__(self, depth, width, im_height=32, im_width=32, input_channels=3, num_classes=10,
-                  act='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.05, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
+                  activation='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.05, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
         super(Wide_Residual_Net, self).__init__()
 
         assert (depth - 4) % 6 == 0, 'depth should be 6n+4'

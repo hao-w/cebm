@@ -7,6 +7,31 @@ from torch.distributions.bernoulli import Bernoulli
 from sebm.gaussian_params import nats_to_params, params_to_nats
 
 
+class MLP_clf(nn.Module):
+    """
+    a mlp-based mlp classifier
+    """
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.hidden = _mlp_block(**kwargs)
+        self.softmax = nn.Softmax()
+        
+    def forward(self, x):
+        return self.softmax(self.hidden(x))
+    
+    def nllloss(self, x, y):
+        probs = self.forward(x)
+        return nn.NLLLoss(probs.log(), y).sum()
+    
+    def score(self, x, y):
+        probs = self.forward(x)
+        return (len(y) - torch.nonzero((probs.argmax(-1) - y))[0, -1]).cpu().detach()
+    
+
+                
+            
+        
+        
 class EBM(nn.Module):
     """
     standard EBM without latent variable z
@@ -110,14 +135,18 @@ class CEBM_2ss(nn.Module):
         if optimize_priors:
             self.prior_nat1 = nn.Parameter(self.prior_nat1)
             self.prior_nat2 = nn.Parameter(self.prior_nat2)
-        self.sp = nn.Softplus()
+        self.arch = arch
             
     def forward(self, x):
-        neural_ss1, neural_ss2 = self.ebm_net(x)
-        return neural_ss1, - neural_ss2**2
-#         neural_ss1 = self.ebm_net(x)
-#         neural_ss2 = - neural_ss1**2
-#         return neural_ss1, neural_ss2
+        if self.arch == 'simplenet2':
+            neural_ss1, neural_ss2 = self.ebm_net(x)
+            return neural_ss1, - neural_ss2**2
+        elif self.arch == 'simplenet':
+            neural_ss1 = self.ebm_net(x)
+            neural_ss2 = - neural_ss1**2
+            return neural_ss1, neural_ss2
+        else:
+            raise NotimplementError
     
     def energy(self, x):
         """
