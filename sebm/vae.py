@@ -114,7 +114,12 @@ if __name__ == "__main__":
     else:
         print('hold out class=%s' % args.heldout_class)
         train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=False)
-    (input_channels, im_height, im_width) = img_dims  
+    (input_channels, im_height, im_width) = img_dims 
+    
+    if args.dataset == 'mnist' or args.dataset == 'fashionmnist':
+        output_paddings = [1,0,0,0]
+    else:
+        output_paddings = [0,0,0,0]
     
     print('Initialize VAE...')
     if args.arch == 'simplenet2':
@@ -133,32 +138,18 @@ if __name__ == "__main__":
                       leak=None)
         dec = Decoder(arch=args.arch,
                       device=args.device,
+                      im_height=im_height, 
+                      im_width=im_width, 
                       input_channels=input_channels, 
                       channels=eval(args.channels), 
                       kernels=eval(args.kernels), 
                       strides=eval(args.strides), 
                       paddings=eval(args.paddings), 
-                      output_paddings=[1,0,0,0], ## TODO: hand-coded for now
+                      output_paddings=output_paddings, ## TODO: hand-coded for now
                       hidden_dim=eval(args.hidden_dim2),
                       latent_dim=args.latent_dim,
-                      output_dim=288, ## TODO: hand-coded for now
                       activation=args.activation,
-                      leak=None)
-    elif args.arch =='mlp':
-        enc = Encoder(arch=args.arch, 
-                      reparameterized=args.reparameterized,
-                      input_dim=im_height*im_width,
-                      hidden_dim1=eval(args.hidden_dim1), 
-                      hidden_dim2=eval(args.hidden_dim2),
-                      output_dim=args.latent_dim, 
-                      activation=args.activation)
-        dec = Decoder(arch=args.arch, 
-                      device=args.device,
-                      input_dim=args.latent_dim,
-                      hidden_dim1=eval(args.hidden_dim1), 
-                      hidden_dim2=eval(args.hidden_dim2),
-                      output_dim=im_height*im_width, 
-                      activation=args.activation)   
+                      leak=None) 
     else:
         raise NotImplementError
     
@@ -166,9 +157,6 @@ if __name__ == "__main__":
     enc = enc.cuda().to(device)
     dec = dec.cuda().to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(enc.parameters())+list(dec.parameters()), lr=args.lr)
-    print('Loading trained models...')
-    enc.load_state_dict(torch.load('weights/cp-%s' % save_version)['enc_state_dict'])
-    dec.load_state_dict(torch.load('weights/cp-%s' % save_version)['dec_state_dict'])
     print('Start training...')
     trainer = Train_procedure(optimizer, enc, dec, args.arch, train_data, args.num_epochs, args.sample_size, device, save_version)
     trainer.train()

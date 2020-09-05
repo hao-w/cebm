@@ -119,21 +119,24 @@ class SimpleNet3(nn.Module):
     """
     Implementation of a mlp-cnn based network that reverse the encoding procedure of SimpleNet2
     """
-    def __init__(self, input_channels, channels, kernels, strides, paddings, output_paddings, hidden_dim, latent_dim, output_dim, activation, leak=None):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, hidden_dim, latent_dim, activation, leak=None):
         super().__init__()
+        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+        flatten_output_dim = out_h * out_w * channels[-1]
         channels.reverse()
         kernels.reverse()
         strides.reverse()
         paddings.reverse()
         hidden_dim.reverse()
+        
         self.total_channels = channels + [input_channels]
-        self.mlp_block = _mlp_block(latent_dim, hidden_dim, output_dim, activation, leak=leak, last_act=True)
-        self.im_h = int(math.sqrt(output_dim / self.total_channels[0]))
-        self.dcnn_block = _dcnn_block(self.im_h, self.im_h, self.total_channels[0], self.total_channels[1:], kernels, strides, paddings, output_paddings, activation, leak=leak)       
+        self.mlp_block = _mlp_block(latent_dim, hidden_dim, flatten_output_dim, activation, leak=leak, last_act=True)
+        self.input_h = int(math.sqrt(flatten_output_dim / self.total_channels[0]))
+        self.dcnn_block = _dcnn_block(self.input_h, self.input_h, self.total_channels[0], self.total_channels[1:], kernels, strides, paddings, output_paddings, activation, leak=leak)       
         
     def forward(self, x):
         h = self.mlp_block(x)
-        return self.dcnn_block(h.view(-1, self.total_channels[0], self.im_h, self.im_h))
+        return self.dcnn_block(h.view(-1, self.total_channels[0], self.input_h, self.input_h))
             
 class MLPNet2(nn.Module):
     """
@@ -172,10 +175,10 @@ class Wres_Block(nn.Module):
                       
         bn_flag -- whether do batch normalization
     """
-    def __init__(self, in_c, out_c, stride, act, dropout_rate=0.0, leak=0.05, swap_cnn=False, bn_flag=False):
+    def __init__(self, in_c, out_c, stride, activation, dropout_rate=0.0, leak=0.2, swap_cnn=False, bn_flag=False):
         super(Wres_Block, self).__init__()
 
-        self.act = act
+        self.activation = activation
         
         if bn_flag:
             self.bn1 = nn.BatchNorm2d(in_c, momentum=0.9)
@@ -197,7 +200,7 @@ class Wres_Block(nn.Module):
             if bn_flag:
                 self.shortcut = nn.Sequential(
                                     nn.BatchNorm2d(in_c, momentum=0.9),
-                                    self.act,
+                                    self.activation,
                                     nn.Conv2d(in_c, out_c, kernel_size=1, stride=stride, bias=True))
             else:
                 self.shortcut = nn.Conv2d(in_c, out_c, kernel_size=1, stride=stride, bias=True)
@@ -205,8 +208,8 @@ class Wres_Block(nn.Module):
             self.shortcut = Identity()
 
     def forward(self, x):
-        h1 = self.dropout(self.conv1(self.act(self.bn1(x))))
-        h2 = self.conv2(self.act(self.bn2(h1)))
+        h1 = self.dropout(self.conv1(self.activation(self.bn1(x))))
+        h2 = self.conv2(self.activation(self.bn2(h1)))
         out = h2 + self.shortcut(x)
         
         return out         
@@ -216,7 +219,7 @@ class Wide_Residual_Net(nn.Module):
         Implementation of Wide Residual Network https://arxiv.org/pdf/1605.07146.pdf
     """
     def __init__(self, depth, width, im_height=32, im_width=32, input_channels=3, num_classes=10,
-                  activation='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.05, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
+                  activation='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.2, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
         super(Wide_Residual_Net, self).__init__()
 
         assert (depth - 4) % 6 == 0, 'depth should be 6n+4'
@@ -224,12 +227,12 @@ class Wide_Residual_Net(nn.Module):
         widths = [16] + [int(v * width) for v in (16, 32, 64)]
         print('WRESNET-%d-%d' %(depth, width))
 
-        if act == 'LeakyReLU':
-            self.act = nn.LeakyReLU(leak)
-        elif act == 'Swish':
-            self.act = Swish()
+        if activation == 'LeakyReLU':
+            self.activation = nn.LeakyReLU(leak)
+        elif activation == 'Swish':
+            self.activation = Swish()
         else:
-            self.act = getattr(nn, act)()
+            self.activation = getattr(nn, activation)()
         self.dropout_rate = dropout_rate
         self.leak = leak
         self.swap_cnn = swap_cnn
@@ -255,7 +258,8 @@ class Wide_Residual_Net(nn.Module):
         
         self.flatten_output_dim = out_h * out_w * widths[3]
         
-        self.mlp_block = _mlp_block(self.flatten_output_dim, hidden_dim, latent_dim, act, leak)
+        self.mlp_block1 = _mlp_block(self.flatten_output_dim, hidden_dim, latent_dim, activation, leak)
+        self.mlp_block2 = _mlp_block(self.flatten_output_dim, hidden_dim, latent_dim, activation, leak)
 
     def _wres_group(self, num_blocks, in_c, out_c, stride, conv_params):
         blocks = []
@@ -263,7 +267,7 @@ class Wide_Residual_Net(nn.Module):
             blocks.append(Wres_Block(in_c=(in_c if b == 0 else out_c), 
                           out_c=out_c, 
                           stride=(stride if b == 0 else 1), 
-                          act=self.act,
+                          activation=self.activation,
                           dropout_rate=self.dropout_rate, 
                           leak=self.leak, 
                           swap_cnn=self.swap_cnn, 
@@ -277,7 +281,7 @@ class Wide_Residual_Net(nn.Module):
     def _init_group(self, in_c, out_c, conv_params):
         if self.start_act:
             init_group = nn.Sequential(
-                self.act,
+                self.activation,
                 nn.Conv2d(in_c, out_c, kernel_size=3, stride=1, padding=1, bias=True))
         else:
             init_group =  nn.Sequential(
@@ -299,4 +303,4 @@ class Wide_Residual_Net(nn.Module):
 #             out = out.view(out.size(0), out.size(1), -1).sum(2)
 #         else:
 #             out = F.avg_pool2d(out, 8)
-        return self.mlp_block(self.act(h))
+        return self.mlp_block1(self.activation(h)), self.mlp_block2(self.activation(h))

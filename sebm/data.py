@@ -94,6 +94,85 @@ class Flowers102(VisionDataset):
         print('Done.')
         
 
+def load_mnist_heldon(dataset, data_dir, batch_size, heldon_size, train=True, normalize=False, resize=True):
+    """
+    load dataset
+    """
+    print('Note: downsampling function is %s' % transforms.Resize(1))
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
+    if dataset == 'mnist':
+        img_dims = (1, 28, 28)
+        if normalize:
+            transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+        else:
+            transform = transforms.Compose([transforms.ToTensor()])
+        fullset = datasets.MNIST(data_dir, train=train, download=True,
+                                       transform=transform) 
+        inds = torch.randperm(len(fullset.data))[:heldon_size]
+        fullset.data = fullset.data[inds]
+        fullset.targets = fullset.targets[inds]  
+        
+    elif dataset == 'fashionmnist':
+        img_dims = (1, 28, 28)
+        if normalize:
+            transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+        else:
+            transform = transforms.Compose([transforms.ToTensor()])
+        fullset = datasets.FashionMNIST(data_dir, train=train, download=True,
+                                       transform=transform) 
+        inds = torch.randperm(len(fullset.data))[:heldon_size]
+        fullset.data = fullset.data[inds]
+        fullset.targets = fullset.targets[inds]
+        
+    elif dataset == 'cifar10':
+        img_dims = (3, 32, 32)
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])            
+
+        fullset = datasets.CIFAR10(data_dir+'CIFAR10/', train=train, download=True,
+                                       transform=transform)
+        inds = torch.randperm(len(fullset.data))[:heldon_size]
+        fullset.data = fullset.data[inds]
+        fullset.targets = np.array(fullset.targets)
+        fullset.targets = fullset.targets[inds]
+        
+        
+    elif dataset == 'svhn':
+        img_dims = (3, 32, 32)
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
+        
+        if train:
+            fullset = datasets.SVHN(data_dir+'SVHN/', split='train', download=True,
+                                           transform=transform)
+        else:
+            fullset = datasets.SVHN(data_dir+'SVHN/', split='test', download=True,
+                                           transform=transform)
+        inds = torch.randperm(len(fullset.data))[:heldon_size]
+        fullset.data = fullset.data[inds]
+        fullset.labels = torch.Tensor(fullset.labels).long()
+        fullset.labels = fullset.labels[inds]
+    else:
+        raise NotImplementError
+
+    data = torch.utils.data.DataLoader(fullset, batch_size=batch_size, shuffle=True) 
+    return data, img_dims
+
 def load_mnist_heldout(data_dir, batch_size, heldout_class, train=True, normalize=True, resize=True):
     """
     load dataset
@@ -210,6 +289,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
             transform = transforms.Compose([transforms.Resize((32,32)),
                                             transforms.ToTensor()])  
         
+        ## ConcatDataset([])
         if train:
             data = torch.utils.data.DataLoader(
                             datasets.SVHN(data_dir+'SVHN/', split='train', download=True,
@@ -261,3 +341,20 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
     else:
         raise ValueError
     return data, img_dims
+
+def load_data_mlpclf(dataset, data_dir, train):
+    f = torch.nn.Flatten()
+    train_data, img_dims = load_data(dataset, data_dir, 1000, train=train, normalize=False)
+    x = train_data.dataset.data
+    if type(x).__module__ == np.__name__:
+        x = f(torch.Tensor(x)).numpy()
+    elif type(x).__module__ == torch.__name__:
+        x = f(x).numpy()
+    else:
+        raise TypeError
+    try:
+        y = train_data.dataset.targets
+    except:
+        y = train_data.dataset.labels
+    y = np.array(y)
+    return x, y

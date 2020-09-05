@@ -50,7 +50,7 @@ class SGLD_sampler():
         assert samples.shape[0] == batch_size, "Samples have unexpected shape."            
         return samples, inds
 
-    def nsgd_steps(self, ebm, samples, num_steps, ):
+    def nsgd_steps(self, ebm, samples, num_steps, logging_interval=None):
         """
         perform noisy gradient descent steps and return updated samples 
         """
@@ -61,11 +61,15 @@ class SGLD_sampler():
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
             samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
-            if (l+1) % 20 == 0:
-                list_samples.append(samples.unsqueeze(0).detach())
-        samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
+            if logging_interval is not None:
+                if (l+1) % logging_interval == 0:
+                    list_samples.append(samples.unsqueeze(0).detach())  
+        if logging_interval is not None:
+            samples = torch.cat(list_samples, 0)
+        else:
+            samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
         assert samples.requires_grad == False, "samples should not require gradient."
-        return samples, torch.cat(list_samples, 0)
+        return samples
     
     def refine_buffer(self, samples, inds):
         """
@@ -85,7 +89,7 @@ class SGLD_sampler():
                     ## truncate buffer from 'head' of the queue
                     self.buffer = self.buffer[len(self.buffer) - self.buffer_size:]
                 
-    def sample(self, ebm, batch_size, num_steps, pcd=True):
+    def sample(self, ebm, batch_size, num_steps, pcd=True, init_samples=None, logging_interval=None):
         """
         perform update using slgd
         pcd means that we sample from replay buffer (with a frequency)
@@ -102,15 +106,18 @@ class SGLD_sampler():
                     samples = self.initial_dist.sample((batch_size, ))
                 inds = None
         else:
-            samples = self.initial_dist.sample((batch_size, ))
-        samples, list_samples = self.nsgd_steps(ebm, samples, num_steps)
+            if init_samples is None:
+                samples = self.initial_dist.sample((batch_size, ))
+            else:
+                samples = init_samples
+        samples = self.nsgd_steps(ebm, samples, num_steps, logging_interval=logging_interval)
         ## refine buffer if pcd
-        if pcd:
+        if logging_interval is None and pcd:
             self.refine_buffer(samples, inds)
-        return samples, list_samples
+        return samples
         
 class Train_procedure():
-    def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, sample_size, regularize_factor, device, save_version):
+    def __init__(self, optimizer, ebm, sgld_sampler, sgld_num_steps, data_noise_std, train_data, num_epochs, regularize_factor, warmup_iters, lr, device, save_version):
         super(self.__class__, self).__init__()
         self.optimizer = optimizer
         self.ebm = ebm
@@ -119,12 +126,14 @@ class Train_procedure():
         self.data_noise_std = data_noise_std
         self.train_data = train_data
         self.num_epochs = num_epochs
-        self.sample_size = sample_size
         self.reg_alpha = regularize_factor
+        self.warmup_iters = warmup_iters
+        self.lr = lr
         self.device = device
         self.save_version = save_version
         
     def train(self):
+#         cur_iter = 0.0
         for epoch in range(self.num_epochs):
             time_start = time.time()
             metrics = dict()
@@ -200,13 +209,14 @@ if __name__ == "__main__":
     ## data config
     parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102', 'fashionmnist'])
     parser.add_argument('--data_dir', default=None, type=str)
-    parser.add_argument('--sample_size', default=1, type=int)
+#     parser.add_argument('--sample_size', default=1, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=1e-2, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, type=bool)
+    parser.add_argument('--warmup_iters', default=1000, type=int)
     ## arch config
     parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'simplenet2', 'wresnet'])
     parser.add_argument('--depth', default=28, type=int)
@@ -218,7 +228,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default="[128]")
     parser.add_argument('--latent_dim', default=10, type=int)
     parser.add_argument('--activation', default='Swish')
-    parser.add_argument('--leak', default=0.01, type=float)
+    parser.add_argument('--leak', default=0.2, type=float)
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
@@ -255,7 +265,7 @@ if __name__ == "__main__":
                         width=args.width,
                         hidden_dim=eval(args.hidden_dim),
                         latent_dim=args.latent_dim,
-                        act=args.activation,
+                        activation=args.activation,
                         leak=args.leak)
     elif args.arch == 'simplenet' or args.arch == 'simplenet2':
         ebm = init_cebm(arch=args.arch,
@@ -291,5 +301,5 @@ if __name__ == "__main__":
                                 grad_clipping=args.grad_clipping)
     
     print('Start training...')
-    trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.sample_size, args.regularize_factor, device, save_version)
+    trainer = Train_procedure(optimizer, ebm, sgld_sampler, args.sgld_num_steps, args.data_noise_std, train_data, args.num_epochs, args.regularize_factor, args.warmup_iters, args.lr, device, save_version)
     trainer.train()
