@@ -112,7 +112,7 @@ class SGLD_sampler():
                 samples = init_samples
         samples = self.nsgd_steps(ebm, samples, num_steps, logging_interval=logging_interval)
         ## refine buffer if pcd
-        if logging_interval is None and pcd:
+        if pcd:
             self.refine_buffer(samples, inds)
         return samples
         
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default="[128]")
     parser.add_argument('--latent_dim', default=10, type=int)
     parser.add_argument('--activation', default='Swish')
-    parser.add_argument('--leak', default=0.2, type=float)
+    parser.add_argument('--leak', default=0.01, type=float)
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config

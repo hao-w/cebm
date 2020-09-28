@@ -13,7 +13,7 @@ class Swish(nn.Module):
     def forward(self, x):
         return x * torch.sigmoid(x)
         
-def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=None):
+def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01):
     """
     """
     if activation == 'Swish':
@@ -36,7 +36,7 @@ def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, 
     flatten_output_dim = out_h * out_w * channels[-1]
     return nn.Sequential(*layers), flatten_output_dim
 
-def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, activation, leak=None, last_act=False):
+def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, activation, leak=0.01, last_act=False):
     """
     """
     if activation == 'Swish':
@@ -59,7 +59,7 @@ def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides,
         layers = layers[:-1]
     return nn.Sequential(*layers)
 
-def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=None, last_act=False):
+def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.01, last_act=False):
     """
     """
     if activation == 'Swish':
@@ -92,7 +92,7 @@ class SimpleNet(nn.Module):
     """
     Implementation of a cnn-mlp based network
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=None):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01):
         super().__init__()
         self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak)
         self.flatten = nn.Flatten()
@@ -105,7 +105,7 @@ class SimpleNet2(nn.Module):
     """
     Implementation of a cnn-mlp based network
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=None):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01):
         super().__init__()
         self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak)
         self.flatten = nn.Flatten()
@@ -119,7 +119,7 @@ class SimpleNet3(nn.Module):
     """
     Implementation of a mlp-cnn based network that reverse the encoding procedure of SimpleNet2
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, hidden_dim, latent_dim, activation, leak=None):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, hidden_dim, latent_dim, activation, leak=0.01):
         super().__init__()
         out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
         flatten_output_dim = out_h * out_w * channels[-1]
@@ -175,7 +175,7 @@ class Wres_Block(nn.Module):
                       
         bn_flag -- whether do batch normalization
     """
-    def __init__(self, in_c, out_c, stride, activation, dropout_rate=0.0, leak=0.2, swap_cnn=False, bn_flag=False):
+    def __init__(self, in_c, out_c, stride, activation, dropout_rate=0.0, leak=0.01, swap_cnn=False, bn_flag=False):
         super(Wres_Block, self).__init__()
 
         self.activation = activation
@@ -219,7 +219,7 @@ class Wide_Residual_Net(nn.Module):
         Implementation of Wide Residual Network https://arxiv.org/pdf/1605.07146.pdf
     """
     def __init__(self, depth, width, im_height=32, im_width=32, input_channels=3, num_classes=10,
-                  activation='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.2, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
+                  activation='LeakyReLU', hidden_dim=[10240, 1024], latent_dim=128, dropout_rate=0.0, leak=0.01, swap_cnn=False, bn_flag=False, start_act=True, sum_pool=False):
         super(Wide_Residual_Net, self).__init__()
 
         assert (depth - 4) % 6 == 0, 'depth should be 6n+4'

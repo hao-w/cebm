@@ -101,7 +101,7 @@ class CEBM_2ss(nn.Module):
         elif arch =='wresnet':
             self.ebm_net = Wide_Residual_Net(**kwargs)
         else:
-            raise NotImplementError # will implement wresnet-28-10 later
+            raise NotImplementError 
             
         self.prior_nat1 = torch.zeros(kwargs['latent_dim']).cuda().to(device)
         self.prior_nat2 = - 0.5 * torch.ones(kwargs['latent_dim']).cuda().to(device)  # same prior for each pixel       
@@ -120,7 +120,7 @@ class CEBM_2ss(nn.Module):
             neural_ss2 = - neural_ss1**2
             return neural_ss1, neural_ss2
         else:
-            raise NotimplementError
+            raise NotImplementError
     
     def energy(self, x):
         """
@@ -200,7 +200,7 @@ class Decoder(nn.Module):
         if self.arch == 'simplenet2':
             SB, in_c, im_h, im_w = images.shape
             recons = recons.view(SB, in_c, im_h*im_h)
-            images = images.view(SB, in_c, im_h*im_h)
+            images = images.contiguous().view(SB, in_c, im_h*im_h)
         else:
             raise NotImplementError
         p_log_prob = Normal(self.prior_mu, self.prior_sigma).log_prob(latents).sum(-1)
@@ -236,24 +236,29 @@ class Encoder(nn.Module):
         log_prob = q_dist.log_prob(latents).sum(-1)
         return latents, log_prob
     
-class MLP_clf(nn.Module):
+class Clf(nn.Module):
     """
-    a mlp-based mlp classifier
+    a naive supervised classifier
     """
-    def __init__(self, **kwargs):
+    def __init__(self, arch, **kwargs):
         super().__init__()
-        self.hidden = _mlp_block(**kwargs)
-        self.softmax = nn.Softmax(dim=-1)
-        self.loss = nn.NLLLoss()
+        if arch =='simplenet':
+            self.hidden = SimpleNet(**kwargs)
+        elif arch == 'mlp':
+            self.hidden = _mlp_block(**kwargs)
+        else:
+            raise NotImplementError
+        self.logsoftmax = nn.LogSoftmax(dim=-1)
+        self.nllloss = nn.NLLLoss()
         
     def forward(self, x):
-        return self.softmax(self.hidden(x))
+        """
+        return log probability
+        """
+        return self.logsoftmax(self.hidden(x))
     
-    def nllloss(self, x, y):
-        probs = self.forward(x)
-        return self.loss(probs.log(), y).mean()
+    def loss(self, pred_y, y):
+        return self.nllloss(pred_y, y)
     
-    def score(self, x, y):
-        probs = self.forward(x)
-        diff = torch.nonzero(probs.argmax(-1) - y, as_tuple=True)[0]
-        return float(len(y) - len(diff))
+    def score(self, pred_y, y):
+        return (pred_y.argmax(-1) == y).float().sum()

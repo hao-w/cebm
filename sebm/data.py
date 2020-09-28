@@ -98,7 +98,7 @@ def load_mnist_heldon(dataset, data_dir, batch_size, heldon_size, train=True, no
     """
     load dataset
     """
-    print('Note: downsampling function is %s' % transforms.Resize(1))
+#     print('Note: downsampling function is %s' % transforms.Resize(1))
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
     if dataset == 'mnist':
@@ -177,7 +177,7 @@ def load_mnist_heldout(data_dir, batch_size, heldout_class, train=True, normaliz
     """
     load dataset
     """
-    print('Note: downsampling function is %s' % transforms.Resize(1))
+#     print('Note: downsampling function is %s' % transforms.Resize(1))
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
     img_dims = (1, 28, 28)
@@ -194,11 +194,11 @@ def load_mnist_heldout(data_dir, batch_size, heldout_class, train=True, normaliz
     data = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True) 
     return data, img_dims
         
-def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=True):
+def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=True, shuffle=True):
     """
     load dataset
     """
-    print('Note: downsampling function is %s' % transforms.Resize(1))
+#     print('Note: downsampling function is %s' % transforms.Resize(1))
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
     if dataset == 'mnist':
@@ -211,7 +211,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         data = torch.utils.data.DataLoader(
                         datasets.MNIST(data_dir, train=train, download=True,
                                        transform=transform),
-                        batch_size=batch_size, shuffle=True) 
+                        batch_size=batch_size, shuffle=shuffle) 
 
     elif dataset == 'fashionmnist':
         img_dims = (1, 28, 28)
@@ -223,7 +223,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         data = torch.utils.data.DataLoader(
                         datasets.FashionMNIST(data_dir, train=train, download=True,
                                        transform=transform),
-                        batch_size=batch_size, shuffle=True) 
+                        batch_size=batch_size, shuffle=shuffle) 
         
     elif dataset == 'cifar10':
         img_dims = (3, 32, 32)
@@ -239,7 +239,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         data = torch.utils.data.DataLoader(
                         datasets.CIFAR10(data_dir+'CIFAR10/', train=train, download=True,
                                        transform=transform),
-                        batch_size=batch_size, shuffle=True)
+                        batch_size=batch_size, shuffle=shuffle)
         
     elif dataset == 'cifar100':
         img_dims = (3, 32, 32)
@@ -255,7 +255,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         data = torch.utils.data.DataLoader(
                         datasets.CIFAR10(data_dir+'CIFAR100/', train=train, download=True,
                                        transform=transform),
-                        batch_size=batch_size, shuffle=True)    
+                        batch_size=batch_size, shuffle=shuffle)    
         
     elif dataset == 'celeba':
         img_dims = (3, 32, 32)
@@ -271,12 +271,12 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
             data = torch.utils.data.DataLoader(
                             datasets.CelebA(data_dir, split='train', target_type='attr', download=True,
                                            transform=transform),
-                            batch_size=batch_size, shuffle=True)
+                            batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
                             datasets.CelebA(data_dir, split='test', taraget_type='attr', download=True,
                                            transform=transform),
-                            batch_size=batch_size, shuffle=True)            
+                            batch_size=batch_size, shuffle=shuffle)            
 
     elif dataset == 'svhn':
         img_dims = (3, 32, 32)
@@ -289,17 +289,21 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
             transform = transforms.Compose([transforms.Resize((32,32)),
                                             transforms.ToTensor()])  
         
-        ## ConcatDataset([])
+        
         if train:
+            train_dataset = datasets.SVHN(data_dir+'SVHN/', split='train', download=True, transform=transform)
+#             extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
+
             data = torch.utils.data.DataLoader(
-                            datasets.SVHN(data_dir+'SVHN/', split='train', download=True,
-                                           transform=transform),
-                            batch_size=batch_size, shuffle=True)
+                            train_dataset,
+#                             torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
+                            batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
                             datasets.SVHN(data_dir+'SVHN/', split='test', download=True,
                                            transform=transform),
-                            batch_size=batch_size, shuffle=True)            
+                            batch_size=batch_size, shuffle=shuffle)            
+
 
     elif dataset == 'imagenet':
         img_dims = (3, 32, 32)
@@ -316,12 +320,12 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
             data = torch.utils.data.DataLoader(
                             datasets.ImageNet(data_dir+'ImageNet/', split='train', download=True,
                                            transform=transform),
-                            batch_size=batch_size, shuffle=True)
+                            batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
                             datasets.ImageNet(data_dir+'ImageNet/', split='test', download=True,
                                            transform=transform),
-                            batch_size=batch_size, shuffle=True) 
+                            batch_size=batch_size, shuffle=shuffle) 
             
     elif dataset == 'flowers102':
         img_dims = (3, 32, 32)
@@ -336,20 +340,42 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         data = torch.utils.data.DataLoader(
                         Flowers102(data_dir, download=True,
                                        transform=transform),
-                        batch_size=batch_size, shuffle=True)
+                        batch_size=batch_size, shuffle=shuffle)
         
     else:
         raise ValueError
     return data, img_dims
 
-def load_data_mlpclf(dataset, data_dir, train):
+def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, shuffle=True):
     f = torch.nn.Flatten()
-    train_data, img_dims = load_data(dataset, data_dir, 1000, train=train, normalize=False)
-    x = train_data.dataset.data
+    train_data, img_dims = load_data(dataset, data_dir, 1000, train=train, normalize=normalize, shuffle=shuffle)
+    try:
+        x = train_data.dataset.data
+    except:
+        x = train_data.dataset.datasets[0].data
     if type(x).__module__ == np.__name__:
-        x = f(torch.Tensor(x)).numpy()
+        if flatten:
+            x = f(torch.Tensor(x)).numpy()
+        else:
+            if dataset == 'mnist' or dataset =='fashionmnist':
+                x = x[:, None, :, :]
+            elif dataset == 'svhn':
+                x = x
+                print(x.shape)
+            else:
+                x = np.transpose(x, (0, 3, 1, 2))
+            
     elif type(x).__module__ == torch.__name__:
-        x = f(x).numpy()
+        if flatten:
+            x = f(x).numpy()
+        else:
+            if dataset == 'mnist' or dataset =='fashionmnist':
+                x = x.numpy()[:, None, :, :]
+            elif dataset =='svhn':
+                x = x.numpy()
+                print(x.shape)
+            else:
+                x = np.transpose(x.numpy(), (0, 3, 1, 2))
     else:
         raise TypeError
     try:
@@ -357,4 +383,7 @@ def load_data_mlpclf(dataset, data_dir, train):
     except:
         y = train_data.dataset.labels
     y = np.array(y)
+    x = x / 255.0
+    if normalize:
+        x = (x - 0.5) / 0.5
     return x, y

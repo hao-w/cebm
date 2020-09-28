@@ -173,11 +173,6 @@ class Train_procedure():
             'replay_buffer': self.sgld_sampler.buffer}
         torch.save(checkpoint_dict, "weights/checkpoint-%s" % self.save_version)
 
-
-class Evaluator():
-    def __init__(self, ):
-        super(self.__class__, self).__init__()
-        
         
 if __name__ == "__main__":
     import torch
