@@ -316,13 +316,13 @@ class CEBM_GMM_2ss(nn.Module):
             self.ebm_net = SimpleNet(**kwargs)
         else:
             raise NotImplementError 
-        mu = 0.31 * torch.randn((K, kwargs['latent_dim']))
-        std = 5*torch.rand((K, kwargs['latent_dim'])) + 1.0
-        self.prior_nat1 = ((mu) / (std**2)).cuda().to(device)
-        self.prior_nat2 = (- 0.5 / (std**2)).cuda().to(device)  # K * D
+        self.prior_mu = 0.31 * torch.randn((K, kwargs['latent_dim'])).cuda().to(device)
+        self.prior_log_sigma = (5*torch.rand((K, kwargs['latent_dim'])) + 1.0).log().cuda().to(device)
+#         self.prior_nat1 = ((mu) / (std**2)).cuda().to(device)
+#         self.prior_nat2 = (- 0.5 / (std**2)).cuda().to(device)  # K * D
         if optimize_priors:
-            self.prior_nat1 = nn.Parameter(self.prior_nat1)
-            self.prior_nat2 = nn.Parameter(self.prior_nat2)
+            self.prior_mu = nn.Parameter(self.prior_mu)
+            self.prior_log_sigma = nn.Parameter(self.prior_log_sigma)
         self.arch = arch
         self.K = K
         self.log_K = torch.Tensor([K]).log().cuda().to(device)
@@ -349,8 +349,9 @@ class CEBM_GMM_2ss(nn.Module):
         argument: dist = 'data' or 'ebm'
         """
         neural_ss1, neural_ss2 = self.forward(x)
-        logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2) # K * D
-        logA_posterior = self.log_partition(self.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        logA_prior = self.log_partition(prior_nat1, prior_nat2) # K * D
+        logA_posterior = self.log_partition(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
         assert logA_prior.shape == (self.K, neural_ss1.shape[1]), 'unexpected shape.'
         assert logA_posterior.shape == (neural_ss1.shape[0], self.K, neural_ss1.shape[-1]), 'unexpected shape.'
         return self.log_K - torch.logsumexp(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)   
@@ -376,8 +377,9 @@ class CEBM_GMM_2ss(nn.Module):
         p(y | x)
         """
         neural_ss1, neural_ss2 = self.forward(x)
-        logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2) # K * D
-        logA_posterior = self.log_partition(self.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        logA_prior = self.log_partition(prior_nat1, prior_nat2) # K * D
+        logA_posterior = self.log_partition(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
         assert logA_prior.shape == (self.K, neural_ss1.shape[1]), 'unexpected shape.'
         assert logA_posterior.shape == (neural_ss1.shape[0], self.K, neural_ss1.shape[-1]), 'unexpected shape.'
         probs = torch.nn.functional.softmax(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)
