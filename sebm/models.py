@@ -18,10 +18,13 @@ class EBM(nn.Module):
             raise NotImplementError # will implement wresnet-28-10 later
     
     def forward(self, x):
-        return self.ebm_net(x)
+        h = self.ebm_net.cnn_block(x)
+        h = torch.nn.Flatten()(h)
+        h = self.ebm_net.mlp_block[:3](h)
+        return h
     
     def energy(self, x):
-        return self.forward(x).squeeze()
+        return self.ebm_net(x).squeeze()
 
 class CEBM_1ss(nn.Module):
     """
@@ -148,6 +151,15 @@ class CEBM_2ss(nn.Module):
         prior_dist = Normal(prior_mu, prior_sigma)       
         latents = prior_dist.sample((sample_size, batch_size, ))
         return latents, prior_dist.log_prob(latents).sum(-1)   
+
+    def log_prior(self, latents):
+        """
+        return samples from prior of size S * B * latent_dim
+        and log_prob of size S * B
+        """
+        prior_mu, prior_sigma = nats_to_params(self.prior_nat1, self.prior_nat2)
+        prior_dist = Normal(prior_mu, prior_sigma)       
+        return prior_dist.log_prob(latents).sum(-1)  
     
     def log_partition(self, nat1, nat2):
         """
@@ -155,14 +167,26 @@ class CEBM_2ss(nn.Module):
         """
         return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
     
-    def log_factor(self, neural_ss1, neural_ss2, latents):
+    def log_factor(self, x, latents):
         """
         compute the log heuristic factor for the EBM
         log factor of size  B 
         """
+        neural_ss1, neural_ss2 = self.forward(x)
         B, latent_dim = neural_ss1.shape
         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
+    
+    def log_factor_expand(self, x, latents, expand_dim):
+        """
+        compute the log heuristic factor for the EBM
+        log factor of size  B 
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        B, latent_dim = neural_ss1.shape
+        neural_ss1 = neural_ss1.repeat(expand_dim , 1, 1)
+        neural_ss2 = neural_ss2.repeat(expand_dim , 1, 1)
+        return (neural_ss1 * latents).sum(2) + (neural_ss2 * (latents**2)).sum(2)
     
     
     def sample_posterior(self, sample_size, neural_ss1, neural_ss2):
@@ -182,7 +206,9 @@ class Decoder(nn.Module):
         super(self.__class__, self).__init__()
         if arch == 'simplenet2':
             self.dec_net = SimpleNet3(**kwargs)
-            self.latent_dim = kwargs['latent_dim']
+            self.latent_dim = kwargs['mlp_input_dim']
+#             self.dec_net = MLPNet(**kwargs)
+#             self.latent_dim = kwargs['input_dim']
         elif arch == 'mlp':
             self.dec_net = MLPNet(**kwargs)
             self.latent_dim = kwargs['input_dim']
@@ -195,21 +221,28 @@ class Decoder(nn.Module):
         self.prior_sigma = torch.ones(self.latent_dim).cuda().to(device)
         
     def forward(self, latents, images):
+        S, B, C, H ,W = images.shape
         recons = self.sigmoid(self.dec_net(latents))
-        assert recons.shape == images.shape, 'shape of recons : %s, shape of images : %s' % (recons.shape, images.shape)
-        if self.arch == 'simplenet2':
-            SB, in_c, im_h, im_w = images.shape
-            recons = recons.view(SB, in_c, im_h*im_h)
-            images = images.contiguous().view(SB, in_c, im_h*im_h)
-        else:
-            raise NotImplementError
-        p_log_prob = Normal(self.prior_mu, self.prior_sigma).log_prob(latents).sum(-1)
+        recons = recons.view(S, B, C, H, W)
+        p_log_prob = Normal(self.prior_mu, self.prior_sigma).log_prob(latents.view(S, B, -1)).sum(-1)
         ll = - self.binary_cross_entropy(recons, images)
-        return recons.view(SB, in_c, im_h, im_h), ll, p_log_prob
-            
+        assert ll.shape == (S, B), 'll.shape = %s' % ll.shape
+        return recons, ll, p_log_prob
+
+    def forward_expand(self, latents, images):
+        train_B, C, H ,W = images.shape
+        test_B = latents.shape[0]
+        recons = self.sigmoid(self.dec_net(latents))
+        recons = recons.unsqueeze(1).repeat(1, train_B, 1, 1, 1)
+        p_log_prob = Normal(self.prior_mu, self.prior_sigma).log_prob(latents).sum(-1)
+        p_log_prob = p_log_prob.unsqueeze(1).repeat(1, train_B)
+        ll = - self.binary_cross_entropy(recons, images.repeat(test_B, 1, 1, 1, 1))
+        assert ll.shape == (test_B, train_B), 'll.shape = %s' % ll.shape
+        return ll, p_log_prob
+    
     def binary_cross_entropy(self, x_mean, x, EPS=1e-9):
         return - (torch.log(x_mean + EPS) * x + 
-                  torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1).sum(-1)
+                  torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1).sum(-1).sum(-1)
     
 class Encoder(nn.Module):
     """
@@ -225,15 +258,20 @@ class Encoder(nn.Module):
         else:
             raise NotImplementError
         self.reparameterized = reparameterized
-        
+        self.arch = arch
     def forward(self, images):
+        S, B, C, H, W = images.shape
+        if self.arch == 'mlp':
+            images = images.view(S, B, C*H*W)
+        elif self.arch == 'simplenet2':
+            images = images.view(S*B, C, H, W)
         mu, log_sigma = self.enc_net(images)
         q_dist = Normal(mu, log_sigma.exp())
         if self.reparameterized:
-            latents = q_dist.rsample().squeeze()
+            latents = q_dist.rsample()
         else:
             latents = q_dist.sample()
-        log_prob = q_dist.log_prob(latents).sum(-1)
+        log_prob = q_dist.log_prob(latents).sum(-1).view(S, B)
         return latents, log_prob
     
 class Clf(nn.Module):
@@ -262,3 +300,85 @@ class Clf(nn.Module):
     
     def score(self, pred_y, y):
         return (pred_y.argmax(-1) == y).float().sum()
+    
+class CEBM_GMM_2ss(nn.Module):
+    """
+    conjugate EBM with latent variable z of a GMM prior,
+    where the ebm encodes each image into two 
+    neural sufficient statistics tx1 tx2
+    where tx2 = - tx1^2
+    """
+    def __init__(self, K, arch, optimize_priors, device, **kwargs):
+        super().__init__()
+        if arch == 'simplenet2':
+            self.ebm_net = SimpleNet2(**kwargs)
+        elif arch == 'simplenet':
+            self.ebm_net = SimpleNet(**kwargs)
+        else:
+            raise NotImplementError 
+        mu = 0.31 * torch.randn((K, kwargs['latent_dim']))
+        std = 5*torch.rand((K, kwargs['latent_dim'])) + 1.0
+        self.prior_nat1 = ((mu) / (std**2)).cuda().to(device)
+        self.prior_nat2 = (- 0.5 / (std**2)).cuda().to(device)  # K * D
+        if optimize_priors:
+            self.prior_nat1 = nn.Parameter(self.prior_nat1)
+            self.prior_nat2 = nn.Parameter(self.prior_nat2)
+        self.arch = arch
+        self.K = K
+        self.log_K = torch.Tensor([K]).log().cuda().to(device)
+        
+    def forward(self, x):
+        if self.arch == 'simplenet2' or self.arch == 'wresnet':
+            neural_ss1, neural_ss2 = self.ebm_net(x)
+            return neural_ss1, - neural_ss2**2
+        elif self.arch == 'simplenet':
+            neural_ss1 = self.ebm_net(x)
+            neural_ss2 = - neural_ss1**2
+            return neural_ss1, neural_ss2
+        else:
+            raise NotImplementError
+    
+    def energy(self, x):
+        """
+        compute the energy function w.r.t. either data distribution 
+        or model distribution
+        that is defined as
+        logA(\lambda) - logA(t(x) + \lambda)
+        Ex of the size B 
+        
+        argument: dist = 'data' or 'ebm'
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2) # K * D
+        logA_posterior = self.log_partition(self.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
+        assert logA_prior.shape == (self.K, neural_ss1.shape[1]), 'unexpected shape.'
+        assert logA_posterior.shape == (neural_ss1.shape[0], self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        return self.log_K - torch.logsumexp(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)   
+     
+    def log_partition(self, nat1, nat2):
+        """
+        compute the log partition of a normal distribution
+        """
+        return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
+    
+    def log_factor(self, x, latents):
+        """
+        compute the log heuristic factor for the EBM
+        log factor of size  B 
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        B, latent_dim = neural_ss1.shape
+        assert latents.shape == (B, latent_dim), 'ERROR!'
+        return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
+    
+    def posterior_y(self, x):
+        """
+        p(y | x)
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2) # K * D
+        logA_posterior = self.log_partition(self.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
+        assert logA_prior.shape == (self.K, neural_ss1.shape[1]), 'unexpected shape.'
+        assert logA_posterior.shape == (neural_ss1.shape[0], self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        probs = torch.nn.functional.softmax(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)
+        return probs

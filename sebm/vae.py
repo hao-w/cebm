@@ -22,11 +22,7 @@ class Train_procedure():
             metrics = dict()
             for b, (images, _) in enumerate(self.train_data):
                 self.optimizer.zero_grad()
-                batch_size, input_c, im_h, im_w = images.shape
-                if self.arch == 'mlp':
-                    images = images.squeeze().view(batch_size, im_h*im_w).repeat(self.sample_size, 1, 1).cuda().to(self.device)
-                elif self.arch == 'simplenet2':
-                    images = images.repeat(self.sample_size, 1, 1, 1, 1).view(self.sample_size*batch_size, input_c, im_h, im_w).cuda().to(self.device)
+                images = images.repeat(self.sample_size, 1, 1, 1, 1).cuda().to(self.device)
                 trace = self.elbo(images)
                 (- trace['elbo']).backward()
                 optimizer.step()
@@ -68,6 +64,8 @@ class Train_procedure():
         trace['elbo'] = log_w.mean()
         return trace 
     
+    
+
 if __name__ == "__main__":
     import torch
     import argparse
@@ -90,10 +88,15 @@ if __name__ == "__main__":
     parser.add_argument('--arch', default='simplenet2', choices=['simplenet2', 'mlp'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
+
     parser.add_argument('--channels', default="[64, 64, 32, 32]")
     parser.add_argument('--kernels', default="[3, 4, 4, 4]")
-    parser.add_argument('--strides', default="[1, 2, 2, 2]")
-    parser.add_argument('--paddings', default="[1, 1, 1, 1]")
+    parser.add_argument('--enc_strides', default="[1, 2, 2, 2]")
+    parser.add_argument('--enc_paddings', default="[1, 1, 1, 1]")
+
+    parser.add_argument('--dec_strides', default="[1, 2, 2, 2]")
+    parser.add_argument('--dec_paddings', default="[0, 0, 1, 1]")
+    parser.add_argument('--mlp_output_dim', default=288, type=int)
     parser.add_argument('--hidden_dim1', default="[400, 200]")
     parser.add_argument('--hidden_dim2', default="[128]")
     parser.add_argument('--latent_dim', default=128, type=int)
@@ -115,12 +118,6 @@ if __name__ == "__main__":
         print('hold out class=%s' % args.heldout_class)
         train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=False)
     (input_channels, im_height, im_width) = img_dims 
-    
-    if args.dataset == 'mnist' or args.dataset == 'fashionmnist':
-        output_paddings = [1,0,0,0]
-    else:
-        output_paddings = [0,0,0,0]
-    
     print('Initialize VAE...')
     if args.arch == 'simplenet2':
         enc = Encoder(arch=args.arch,
@@ -130,12 +127,13 @@ if __name__ == "__main__":
                       input_channels=input_channels, 
                       channels=eval(args.channels), 
                       kernels=eval(args.kernels), 
-                      strides=eval(args.strides), 
-                      paddings=eval(args.paddings), 
+                      strides=eval(args.enc_strides), 
+                      paddings=eval(args.enc_paddings), 
                       hidden_dim=eval(args.hidden_dim2),
                       latent_dim=args.latent_dim,
                       activation=args.activation,
                       leak=None)
+        
         dec = Decoder(arch=args.arch,
                       device=args.device,
                       im_height=im_height, 
@@ -143,13 +141,28 @@ if __name__ == "__main__":
                       input_channels=input_channels, 
                       channels=eval(args.channels), 
                       kernels=eval(args.kernels), 
-                      strides=eval(args.strides), 
-                      paddings=eval(args.paddings), 
-                      output_paddings=output_paddings, ## TODO: hand-coded for now
+                      strides=eval(args.dec_strides), 
+                      paddings=eval(args.dec_paddings),
+                      mlp_input_dim=args.latent_dim,
                       hidden_dim=eval(args.hidden_dim2),
-                      latent_dim=args.latent_dim,
+                      mlp_output_dim=args.mlp_output_dim,
                       activation=args.activation,
                       leak=None) 
+    elif args.arch == 'mlp':
+        enc = Encoder(arch=args.arch,
+                      reparameterized=args.reparameterized,
+                      input_dim=im_height*im_width,
+                      hidden_dim1=eval(args.hidden_dim1),
+                      hidden_dim2=eval(args.hidden_dim2),
+                      output_dim=args.latent_dim,
+                      activation=args.activation)
+        dec = Decoder(arch=args.arch,
+                      device=device,
+                      input_dim=args.latent_dim,
+                      hidden_dim1=eval(args.hidden_dim1),
+                      hidden_dim2=eval(args.hidden_dim2),
+                      output_dim=im_height*im_width,
+                      activation=args.activation)
     else:
         raise NotImplementError
     

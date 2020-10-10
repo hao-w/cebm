@@ -36,7 +36,7 @@ def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, 
     flatten_output_dim = out_h * out_w * channels[-1]
     return nn.Sequential(*layers), flatten_output_dim
 
-def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, activation, leak=0.01, last_act=False):
+def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01, last_act=False):
     """
     """
     if activation == 'Swish':
@@ -52,7 +52,7 @@ def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides,
     layers = []
     in_c = input_channels
     for i, out_c in enumerate(channels):
-        layers.append(nn.ConvTranspose2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i], output_padding=output_paddings[i]))
+        layers.append(nn.ConvTranspose2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i]))
         layers.append(act)
         in_c = out_c
     if not last_act:
@@ -70,6 +70,7 @@ def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.01, last_ac
     else:
         act = getattr(nn, activation)()
     layers = []
+#     last_layer = []
     in_dim = input_dim
     for i, out_dim in enumerate(hidden_dim):
         layers.append(nn.Linear(in_dim, out_dim))
@@ -79,7 +80,7 @@ def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.01, last_ac
         layers.append(nn.Linear(in_dim, latent_dim))
     if last_act:
         layers.append(act)
-    return nn.Sequential(*layers)
+    return nn.Sequential(*layers) #, nn.Sequential(*last_layer)
     
 
 class Identity(nn.Module):
@@ -112,32 +113,30 @@ class SimpleNet2(nn.Module):
         self.mlp_block1 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
         self.mlp_block2 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
     def forward(self, x):
-        h = self.cnn_block(x)
-        return self.mlp_block1(self.flatten(h)), self.mlp_block2(self.flatten(h))
+        h = self.flatten(self.cnn_block(x))
+        return self.mlp_block1(h), self.mlp_block2(h)
 
 class SimpleNet3(nn.Module):
     """
     Implementation of a mlp-cnn based network that reverse the encoding procedure of SimpleNet2
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, output_paddings, hidden_dim, latent_dim, activation, leak=0.01):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=0.01):
         super().__init__()
-        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
-        flatten_output_dim = out_h * out_w * channels[-1]
         channels.reverse()
         kernels.reverse()
         strides.reverse()
         paddings.reverse()
         hidden_dim.reverse()
-        
-        self.total_channels = channels + [input_channels]
-        self.mlp_block = _mlp_block(latent_dim, hidden_dim, flatten_output_dim, activation, leak=leak, last_act=True)
-        self.input_h = int(math.sqrt(flatten_output_dim / self.total_channels[0]))
-        self.dcnn_block = _dcnn_block(self.input_h, self.input_h, self.total_channels[0], self.total_channels[1:], kernels, strides, paddings, output_paddings, activation, leak=leak)       
-        
+        self.input_channels = channels[0]
+        self.channels = channels[1:] + [input_channels]
+        self.mlp_block = _mlp_block(mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=leak, last_act=True)
+        self.input_h = int(math.sqrt(mlp_output_dim / self.input_channels))
+        self.dcnn_block = _dcnn_block(self.input_h, self.input_h, self.input_channels, self.channels, kernels, strides, paddings, activation, leak=leak)       
     def forward(self, x):
         h = self.mlp_block(x)
-        return self.dcnn_block(h.view(-1, self.total_channels[0], self.input_h, self.input_h))
-            
+        h =h.view(h.shape[0], self.input_channels, self.input_h, self.input_h)
+        return self.dcnn_block(h)
+             
 class MLPNet2(nn.Module):
     """
     Implementation of a mlp based network

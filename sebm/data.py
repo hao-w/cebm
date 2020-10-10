@@ -6,6 +6,39 @@ from torchvision.datasets.folder import default_loader
 from PIL import Image
 import numpy as np
 
+class Constant(VisionDataset):
+    
+
+    def __init__(self, color_mode, root, loader=default_loader, transform=None):
+        super(Constant, self).__init__(root, transform=transform)        
+
+        if color_mode == 'rgb':
+            self.data_file = 'rgb.pt'
+        elif color_mode == 'grayscale':
+            self.data_file = 'grayscale.pt'
+        else:
+            raise ValueError
+        self.color_mode = color_mode 
+        self.data  = torch.load(os.path.join(self.root, self.data_file))
+        
+    def __getitem__(self, index):
+        img = self.data[index]
+        if self.color_mode == 'rgb':
+            img = Image.fromarray(img.numpy().astype(np.uint8), mode='RGB')
+        elif self.color_mode == 'grayscale':
+            img = Image.fromarray(img.numpy().astype(np.uint8), mode='L')
+        else:
+            raise ValueError
+            
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, int(-1)
+
+    def __len__(self):
+        return len(self.data)
+
+    
 class Flowers102(VisionDataset):
     data_file = 'data.pt'
 
@@ -225,6 +258,19 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
                                        transform=transform),
                         batch_size=batch_size, shuffle=shuffle) 
         
+    elif dataset == 'emnist':
+        img_dims = (1, 28, 28)
+        if normalize:
+            transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))]) 
+        else:
+            transform = transforms.Compose([transforms.ToTensor()])
+
+        data = torch.utils.data.DataLoader(
+                        datasets.EMNIST(data_dir, split='digits', train=train, download=True,
+                                       transform=transform),
+                        batch_size=batch_size, shuffle=shuffle) 
+        
     elif dataset == 'cifar10':
         img_dims = (3, 32, 32)
         if normalize:
@@ -241,6 +287,22 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
                                        transform=transform),
                         batch_size=batch_size, shuffle=shuffle)
         
+    elif dataset == 'texture':
+        img_dims = (3, 32, 32)
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5),
+                                                                (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])
+            
+        data = torch.utils.data.DataLoader(
+                        datasets.ImageFolder(root=data_dir+'Texture/dtd/images/', 
+                                    transform=transform),
+                        batch_size=batch_size, shuffle=shuffle)
+            
     elif dataset == 'cifar100':
         img_dims = (3, 32, 32)
         
@@ -292,11 +354,11 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         
         if train:
             train_dataset = datasets.SVHN(data_dir+'SVHN/', split='train', download=True, transform=transform)
-#             extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
+            extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
 
             data = torch.utils.data.DataLoader(
-                            train_dataset,
-#                             torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
+#                             train_dataset,
+                            torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
                             batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
@@ -342,8 +404,37 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
                                        transform=transform),
                         batch_size=batch_size, shuffle=shuffle)
         
+    elif dataset == 'constant_rgb':
+        img_dims = (3, 32, 32)
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,0.5,0.5), 
+                                                                 (0.5,0.5,0.5))])
+        else:
+            transform = transforms.Compose([transforms.Resize((32,32)),
+                                            transforms.ToTensor()])  
+        data = torch.utils.data.DataLoader(
+                        Constant(color_mode='rgb', root=data_dir + 'Constant/', transform=transform),
+                        batch_size=batch_size, shuffle=shuffle)
+
+    elif dataset == 'constant_grayscale':
+        img_dims = (1, 28, 28)
+        if normalize:
+            transform = transforms.Compose([transforms.Resize((28,28)),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,),(0.5,))])
+        else:
+            transform = transforms.Compose([transforms.Resize((28,28)),
+                                            transforms.ToTensor()])  
+        data = torch.utils.data.DataLoader(
+                        Constant(color_mode='grayscale', root=data_dir + 'Constant/',transform=transform),
+                        batch_size=batch_size, shuffle=shuffle)
+        
     else:
         raise ValueError
+        
+        
     return data, img_dims
 
 def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, shuffle=True):

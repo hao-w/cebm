@@ -1,12 +1,28 @@
 #!/bin/sh
-# python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=fashionmnist --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=5e-5 --hidden_dim=[128] --latent_dim=128 --num_epochs=150 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=100 --act=Swish --regularize_factor=5e-2 --arch=simplenet2
 
+
+
+# python3 cebm_gmm_sgld.py --seed=1 --device=0 --dataset=fashionmnist --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --latent_dim=128 --num_epochs=100 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=1e-1 --activation=Swish --arch=simplenet2 
+
+# python3 cebm_gmm_sgld.py --seed=2 --device=1 --dataset=cifar10 --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=100 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=1e-1 --activation=Swish --arch=simplenet2
+
+# python3 vae.py --seed=1 --device=0 --dataset=fashionmnist --data_dir=../../sebm_data/ --batch_size=100 --reparameterized --optimizer=Adam --lr=1e-3 --latent_dim=128 --num_epochs=100 --arch=simplenet2 --activation=ReLU
+
+# python3 vae.py --seed=1 --device=1 --dataset=mnist --data_dir=../../sebm_data/ --batch_size=100 --reparameterized --optimizer=Adam --lr=1e-4 --latent_dim=50 --num_epochs=150 --arch=simplenet2 --activation=ReLU
+
+# python3 vae.py --seed=1 --device=1 --dataset=cifar10 --data_dir=../../sebm_data/ --batch_size=100 --reparameterized --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --dec_paddings=[1,1,1,1] --mlp_output_dim=8192 --latent_dim=50 --num_epochs=150 --arch=simplenet2 --activation=ReLU
+
+# python3 vae.py --seed=1 --device=0 --dataset=svhn --data_dir=../../sebm_data/ --batch_size=100 --reparameterized --optimizer=Adam --lr=1e-3 --channels=[64,128,256,512] --dec_paddings=[1,1,1,1] --mlp_output_dim=8192 --latent_dim=128 --num_epochs=100 --arch=simplenet2 --activation=ReLU
+
+
+# python3 ebm_sgld.py --seed=1 --device=0 --dataset=mnist --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=5e-5 --hidden_dim=[128,128] --latent_dim=1 --num_epochs=100 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --act=Swish --regularize_factor=5e-3 --arch=simplenet
+
+# python3 ebm_sgld.py --seed=3 --device=0 --dataset=svhn --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --hidden_dim=[1024,128] --latent_dim=1 --num_epochs=10 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --act=Swish --regularize_factor=1e-1 --arch=simplenet
 # sebm-svhn-standard
-python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=cifar10 --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=100 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=1e-1 --activation=Swish --arch=simplenet2
+# python3 cebm_sgld.py --ss=2 --seed=3 --device=1 --dataset=cifar10 --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=100 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=1e-1 --activation=Swish --arch=simplenet2
 
-# python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=cifar10 --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=5e-5 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=90 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=5e-3 --activation=Swish --arch=simplenet2
 
-# python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=svhn --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=5e-5 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=90 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=5e-3 --activation=Swish --arch=simplenet2
+# python3 cebm_sgld.py --ss=2 --seed=3 --device=0 --dataset=svhn --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=1e-4 --channels=[64,128,256,512] --hidden_dim=[1024] --latent_dim=128 --num_epochs=10 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=60 --regularize_factor=1e-1 --activation=Swish --arch=simplenet2 
 
 #alonzo
 # # clf-mnist
@@ -75,5 +91,3 @@ python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=cifar10 --data_dir=../
 # python3 cebm_sgld.py --ss=2 --seed=1 --device=0 --dataset=mnist --data_dir=../../sebm_data/ --batch_size=100 --data_noise_std=3e-2 --optimizer=Adam --lr=5e-5 --hidden_dim=[128] --latent_dim=128 --num_epochs=150 --buffer_init --buffer_dup_allowed --sgld_noise_std=7.5e-3 --sgld_lr=2.0 --sgld_num_steps=50 --act=Swish --regularize_factor=5e-3 --arch=simplenet --heldout_class=0
 
 
-
-# python3 vae.py --seed=1 --device=0 --dataset=fashionmnist --data_dir=../../sebm_data/ --batch_size=100 --reparameterized --optimizer=Adam --lr=1e-4  --latent_dim=128 --num_epochs=1000 --arch=simplenet2 --activation=ReLU
