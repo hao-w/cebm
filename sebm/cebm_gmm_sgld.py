@@ -129,7 +129,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm_gmm_2ss-out=-1-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm_gmm_k=%d-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.num_clusters, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
     if args.heldout_class == -1:
