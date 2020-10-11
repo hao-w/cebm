@@ -42,7 +42,8 @@ class Train_procedure():
                     else:
                         metrics[key] += trace[key].detach() 
             self.save_checkpoints()
-            self.logging(metrics=metrics, N=b+1, epoch=epoch)
+            time_end = time.time()
+            self.logging(metrics=metrics, N=b+1, epoch=epoch, ts=time_end-time_start)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
 
@@ -61,20 +62,20 @@ class Train_procedure():
         return trace
     
     
-    def logging(self, metrics, N, epoch):
+    def logging(self, metrics, N, epoch, ts):
         if epoch == 0:
             log_file = open('results/log-' + self.save_version + '.txt', 'w+')
         else:
             log_file = open('results/log-' + self.save_version + '.txt', 'a+')
         metrics_print = ",  ".join(['%s=%.3e' % (k, v / N) for k, v in metrics.items()])
-        print("Epoch=%d, " % (epoch+1) + metrics_print, file=log_file)
-        log_file.close()
-        
+        print("(%ds)Epoch=%d, " % (ts, epoch+1) + metrics_print, file=log_file)
+        log_file.close()        
     def save_checkpoints(self):
         checkpoint_dict  = {
             'model_state_dict': self.ebm.state_dict(),
-            'prior_nat1' : self.ebm.prior_nat1,
-            'prior_nat2' : self.ebm.prior_nat2
+            'prior_mu' : self.ebm.prior_mu,
+            'prior_log_sigma' : self.ebm.prior_log_sigma
+            #'replay_buffer' : self.sgld_sampler.buffer
             }
         torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
@@ -128,7 +129,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     set_seed(args.seed)
-    device = torch.device('cuda:%d' % args.device)
+    device = torch.device('cuda:%d' % torch.cuda.current_device())
     save_version = 'cebm_gmm_2ss-out=-1-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
@@ -139,7 +140,7 @@ if __name__ == "__main__":
         train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=True)
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'simplenet' or args.arch == 'simplenet2':
-        ebm = CEBM_GMM_2ss(K=args.num_clusters,
+        ebm = CEBM_GMM_2ss(K=50,
                         arch=args.arch,
                         optimize_priors=args.optimize_priors,
                         device=device,
