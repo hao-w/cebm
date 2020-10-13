@@ -8,18 +8,157 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import roc_auc_score
 from sebm.data import load_data, load_data_as_array
 from sebm.sgld import SGLD_sampler
-from sebm.gaussian_params import nats_to_params
+from sebm.gaussian_params import nats_to_params, params_to_nats
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier
 from sklearn.semi_supervised import LabelPropagation, LabelSpreading
 import time
+from tqdm import tqdm
+from sebm.supervised_clf import Downstream_Semi_Clf
+from sebm.models import Clf
 
-def unlabel_latents(evaluator, num_shots, seed):
+def plot_likelihood_cond_samples(images_ebm, fs=2, save_name=None):    
+    num_rows, num_cols = len(images_ebm[0]), len(images_ebm)
+    gs = gridspec.GridSpec(num_rows, num_cols)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=0.95, wspace=0.3, hspace=0.3)
+    fig = plt.figure(figsize=(fs * num_cols, fs * num_rows))
+
+    for i in range(num_rows):
+        for j in range(num_cols):
+            ax = fig.add_subplot(gs[i, j])
+            images_b = images_ebm[j].cpu().detach()
+            if images_b.min() < 0.0:
+                images_b = torch.clamp(images_b, min=-1, max=1)
+                images_b = images_b * 0.5 + 0.5
+                images_b = images_b.numpy()
+            try:
+                ax.imshow(images_b[i], cmap='gray', vmin=0, vmax=1.0)
+            except:
+                ax.imshow(np.transpose(images_b[i], (1,2,0)), vmin=0, vmax=1.0)
+            ax.set_xticks([])
+            ax.set_yticks([])
+    if save_name is not None:
+        plt.savefig('samples/' + save_name + '_ll_samples.png', dpi=300)
+        plt.close()
+        
+def plot_nearest_neighbors(test_data, nns, min_labels, min_distances, fs=2, save_name=None):    
+    num_rows, num_cols = nns.shape[0], nns.shape[1]+1
+    true_images = test_data['images']
+    true_labels = test_data['labels']
+    if true_images.min() < 0.0:
+        true_images = torch.clamp(true_images, min=-1, max=1)
+        true_images = true_images * 0.5 + 0.5
+    gs = gridspec.GridSpec(num_rows, num_cols)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.3, hspace=0.3)
+    fig = plt.figure(figsize=(fs * num_cols, fs * num_rows))
+    
+    true_images = true_images.squeeze(1).numpy()
+    nns = nns.squeeze(2).numpy()
+    for i in range(num_rows):
+        ax = fig.add_subplot(gs[i, 0])
+        try:
+            ax.imshow(true_images[i], cmap='gray', vmin=0, vmax=1.0)
+        except:
+            ax.imshow(np.transpose(true_images[i], (1,2,0)), vmin=0, vmax=1.0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title('Class=%d' % true_labels[i], fontsize=8)
+        for j in range(1, num_cols):
+            ax = fig.add_subplot(gs[i, j])
+            try:
+                ax.imshow(nns[i, j-1], cmap='gray', vmin=0, vmax=1.0)
+            except:
+                ax.imshow(np.transpose(nns[i, j-1], (1,2,0)), vmin=0, vmax=1.0)   
+            ax.set_axis_off()
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title('Class=%d' % (min_labels[i, j-1]), fontsize=8)
+    if save_name is not None:
+        plt.savefig('samples/' + save_name + '_nns.png', dpi=300)
+        plt.close()
+
+        
+def plot_k_nearest_neighbors(test_images, test_labels, nns, min_labels, min_distances, fs=2, save_name=None):    
+    num_rows, num_cols = nns.shape[0], 4
+#     true_images = test_data['images']
+#     true_labels = test_data['labels']
+#     if true_images.min() < 0.0:
+#         true_images = torch.clamp(true_images, min=-1, max=1)
+#         true_images = true_images * 0.5 + 0.5
+    gs = gridspec.GridSpec(num_rows, num_cols)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
+    fig = plt.figure(figsize=(fs * num_cols, fs * num_rows))
+    
+    test_images = test_images.squeeze(1).numpy()
+    nns = nns.squeeze(2).numpy()
+    for i in range(num_rows):
+        ax = fig.add_subplot(gs[i, 0])
+        try:
+            ax.imshow(test_images[i], cmap='gray', vmin=0, vmax=1.0)
+        except:
+            ax.imshow(np.transpose(test_images[i], (1,2,0)), vmin=0, vmax=1.0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+#         ax.set_title('Class=%d' % test_labels[i], fontsize=8)
+        for j in range(1, num_cols):
+            ax = fig.add_subplot(gs[i, j])
+            try:
+                ax.imshow(nns[i, j-1], cmap='gray', vmin=0, vmax=1.0)
+            except:
+                ax.imshow(np.transpose(nns[i, j-1], (1,2,0)), vmin=0, vmax=1.0)   
+            ax.set_axis_off()
+            ax.set_xticks([])
+            ax.set_yticks([])
+#             ax.set_title('Class=%d' % (min_labels[i, j-1]), fontsize=8)
+    if save_name is not None:
+        plt.savefig('samples/' + save_name + '_nns.svg')
+        plt.close()
+
+        
+def semi_nn_clf(model_name, device, evaluator, list_num_shots=[1, 10, 100, -1], num_runs=10, num_epochs=100, batch_size=100, reg_lambda=1e-5):
+    fout = open('semi-nn-clf-%s.txt' % model_name, 'a+')
+    for num_shots in tqdm(list_num_shots):
+        Accu = []
+        for i in range(num_runs):
+            zs, ys = unlabel_latents(evaluator, num_shots, seed=i)
+            zs, ys = torch.Tensor(zs), torch.LongTensor(ys)
+            classifier = Downstream_Semi_Clf(device, reg_lambda, batch_size=batch_size, num_epochs=num_epochs)
+            classifier.train(zs, ys)
+            test_zs, test_ys = unlabel_latents(evaluator, num_shots=-1, seed=i, train=False)
+            test_zs, test_ys = torch.Tensor(test_zs), torch.LongTensor(test_ys)
+            accu = classifier.score(test_zs, test_ys).item()
+            print(accu)
+            Accu.append(np.array([accu]))
+            if num_shots == -1:
+                break
+        Accu = np.concatenate(Accu)
+        print('data=%s, num_shots=%d, mean=%.4f, std=%.4f' % (evaluator.dataset, num_shots, Accu.mean(), Accu.std()), file=fout)
+    fout.close()
+    
+def fewshots(model_name, evaluator, list_num_shots=[1, 10, 100, -1], num_runs=10):
+    fout = open('fewshots-%s.txt' % model_name, 'a+')
+    for num_shots in tqdm(list_num_shots):
+        Accu = []
+        for i in range(num_runs):
+            if num_shots == -1:
+                accu = train_logistic_classifier(evaluator, train_data=None)
+                Accu.append(np.array([accu]))
+                break
+            else:
+                data = torch.load('/home/hao/Research/sebm_data/fewshots/%s/%d/%d.pt' % (evaluator.dataset, num_shots*10, i+1))
+                accu = train_logistic_classifier(evaluator, train_data=data)
+                Accu.append(np.array([accu]))
+            
+        Accu = np.concatenate(Accu)
+        print('data=%s, num_shots=%d, mean=%.4f, std=%.4f' % (evaluator.dataset, num_shots, Accu.mean(), Accu.std()), file=fout)
+    fout.close()
+        
+def unlabel_latents(evaluator, num_shots, seed, train=True):
     ys_permuted = []
     zs_permuted = []
     np.random.seed(seed)
-    zs, ys = evaluator.extract_features(train=True, shuffle=False)
+    zs, ys = evaluator.extract_features(train=train, shuffle=False)
     if num_shots == -1:
         return zs, ys
     else:
@@ -52,8 +191,36 @@ def label_propagation(algo_name, evaluator, num_shots, seed, kernel, gamma, n_ne
     te = time.time()
     print('(%ds) mean accuracy=%s' % (te-ts, accu))
     return accu
-    
-def similarity_ebm_z_space(evaluator, train_batch_size, test_batch_size, model_name):
+
+def similarity_z_space_fewshots(evaluator, train_batch_size, test_data):
+    """
+    For each test data point, compute the L2 norm distance from the training data in latent space,
+    return the confusion matrix
+    """
+    zs_train, ys_train = evaluator.extract_features(train=True, shuffle=False)
+    zs_test, ys_test = evaluator.extract_features_fewshots(data=test_data)
+    zs_train = torch.Tensor(zs_train)
+    ys_train = torch.Tensor(ys_train)
+    zs_test = torch.Tensor(zs_test)
+    ys_test = torch.Tensor(ys_test)
+    test_batch_size = len(ys_test)
+    zs_test = zs_test.unsqueeze(1).repeat(1, train_batch_size, 1)
+    distances = []
+    for i in range(int(len(ys_train) / train_batch_size)):
+        zs_train_b = zs_train[(i)*train_batch_size:(i+1)*train_batch_size]                
+        zs_train_b = zs_train_b.repeat(test_batch_size, 1, 1)
+        sq_norm = ((zs_train_b - zs_test) ** 2).sum(-1)
+        distances.append(sq_norm)
+    distances = torch.cat(distances, 1)
+    minimum_distances, indicies = torch.topk(distances, k=3, dim=-1, largest=False, sorted=True)
+    min_labels = ys_train[indicies]
+    train_data, _ = load_data_as_array(evaluator.dataset, evaluator.data_dir, train=True, normalize=False, flatten=False, shuffle=False)
+    train_data = torch.Tensor(train_data).repeat(test_batch_size, 1, 1, 1, 1) 
+    indicies_expand = indicies.unsqueeze(-1).repeat(1, 1, train_data.shape[2]).unsqueeze(-1).repeat(1, 1, 1, train_data.shape[3]).unsqueeze(-1).repeat(1,1,1,1,train_data.shape[4])
+    nns = torch.gather(train_data, 1, indicies_expand)
+    return minimum_distances, min_labels, nns
+
+def similarity_z_space(evaluator, train_batch_size, test_batch_size, model_name):
     """
     For each test data point, compute the L2 norm distance from the training data in latent space,
     return the confusion matrix
@@ -65,7 +232,6 @@ def similarity_ebm_z_space(evaluator, train_batch_size, test_batch_size, model_n
     ys_train = torch.Tensor(ys_train)
     ys_test = torch.Tensor(ys_test)
     pred_ys_test = []
-    min_distances = []
     for b in range(int(len(ys_test) / test_batch_size)):
         zs_test_b = zs_test[(b)*test_batch_size:(b+1)*test_batch_size]
         zs_test_b = zs_test_b.unsqueeze(1).repeat(1, train_batch_size, 1)
@@ -78,16 +244,37 @@ def similarity_ebm_z_space(evaluator, train_batch_size, test_batch_size, model_n
         distances = torch.cat(distances, 1)
         indices = torch.argmin(distances, dim=-1) # test_size
         pred_ys_test.append(ys_train[indices].unsqueeze(-1))
-        
-        min_distances.append(distances[torch.arange(len(indices)), indices].unsqueeze(-1))
-        
         print('%d completed..' % (b+1))
     pred_ys_test = torch.cat(pred_ys_test, 0)
-    min_distances = torch.cat(min_distances, 0)
-    return min_distances
-#     paired = torch.cat((ys_test.unsqueeze(-1), pred_ys_test), -1)
-#     torch.save(paired, 'confusion_matrix_labels_%s_z_%s.pt' % (model_name, evaluator.dataset))
-    
+    paired = torch.cat((ys_test.unsqueeze(-1), pred_ys_test), -1)
+    torch.save(paired, 'confusion_matrix_labels_%s_z_%s.pt' % (model_name, evaluator.dataset))
+
+def similarity_pixel_space_fewshots(train_dataset, test_data, data_dir, train_batch_size):
+    """ 
+    """
+    train_data, _ = load_data(train_dataset, data_dir, batch_size=train_batch_size, train=True, shuffle=False, normalize=False)
+    test_images = test_data['images']
+    test_images = torch.flatten(test_images, start_dim=1)
+    test_images = test_images.unsqueeze(1).repeat(1, train_batch_size, 1)
+    distances = []
+    train_labels = torch.Tensor(train_data.dataset.targets)
+    train_images = torch.Tensor(np.transpose(train_data.dataset.data, (0, 3, 1, 2)).astype(float))
+    test_batch_size = len(test_images)
+    for (train_images_b, _) in train_data:
+        train_images_b = torch.flatten(train_images_b, start_dim=1).repeat(test_batch_size, 1, 1)
+        sq_norm = ((train_images_b - test_images) ** 2).sum(-1)
+        distances.append(sq_norm)
+    distances = torch.cat(distances, 1)
+    minimum_distances, indicies = torch.topk(distances, k=3, dim=-1, largest=False, sorted=True)
+    min_labels = train_labels[indicies]
+#     train_data, _ = load_data_as_array(dataset, data_dir, train=True, normalize=False, flatten=False, shuffle=False)
+    train_images = train_images.repeat(test_batch_size, 1, 1, 1, 1) 
+    train_images /= 255.0
+    indicies_expand = indicies.unsqueeze(-1).repeat(1, 1, train_images.shape[2]).unsqueeze(-1).repeat(1, 1, 1, train_images.shape[3]).unsqueeze(-1).repeat(1,1,1,1,train_images.shape[4])
+    nns = torch.gather(train_images, 1, indicies_expand)
+#     nns = train_images[torch.arange(test_batch_size), indices]
+    return minimum_distances, min_labels, nns 
+
 def similarity_pixel_space(train_dataset, test_dataset, data_dir, train_batch_size, test_batch_size):
     """
     For each test data point, compute the L2 norm distance from the training data in the pixel space,
@@ -97,7 +284,6 @@ def similarity_pixel_space(train_dataset, test_dataset, data_dir, train_batch_si
     test_data, _ = load_data(test_dataset, data_dir, batch_size=test_batch_size, train=False, shuffle=False, normalize=False)
     all_test_labels = []
     pred_test_labels = []
-    min_distances = []
     for b, (test_images, test_labels) in enumerate(test_data):
         test_images = torch.flatten(test_images, start_dim=1)
         test_images = test_images.unsqueeze(1).repeat(1, train_batch_size, 1)
@@ -114,28 +300,25 @@ def similarity_pixel_space(train_dataset, test_dataset, data_dir, train_batch_si
         indices = torch.argmin(distances, dim=-1) # test_size
         all_train_labels = torch.cat(all_train_labels, 0).squeeze(-1) # train_size
         pred_test_labels.append(all_train_labels[indices].unsqueeze(-1))
-        min_distances.append(distances[torch.arange(len(indices)), indices].unsqueeze(-1))
         print('%d completed..' % (b+1))
-#     all_test_labels = torch.cat(all_test_labels, 0)
+    all_test_labels = torch.cat(all_test_labels, 0)
     pred_test_labels = torch.cat(pred_test_labels, 0)
-    min_distances = torch.cat(min_distances, 0)
-    return min_distances
-#     paired = torch.cat((all_test_labels, pred_test_labels), -1)
-#     torch.save(paired, 'confusion_matrix_labels_pixel_%s.pt' % train_dataset)
+    paired = torch.cat((all_test_labels, pred_test_labels), -1)
+    torch.save(paired, 'confusion_matrix_labels_pixel_%s.pt' % train_dataset)
 
 def train_logistic_classifier(evaluator, train_data=None):
     if train_data is None:
-        print('extract mean feature of training data..')
+#         print('extract mean feature of training data..')
         zs, ys = evaluator.extract_features(train=True)
     else:
         zs, ys = evaluator.extract_features_fewshots(train_data)
-    print('start to train lr classifier..')
+#     print('start to train lr classifier..')
     lr = LogisticRegression(random_state=0, multi_class='auto', solver='liblinear', max_iter=10000).fit(zs, ys)
-    print('extract mean feature of testing data..')
+#     print('extract mean feature of testing data..')
     zs_test, ys_test = evaluator.extract_features(train=False)
-    print('testing lr classifier..')
+#     print('testing lr classifier..')
     accu = lr.score(zs_test, ys_test)
-    print('mean accuray=%.4f' % accu)
+#     print('mean accuray=%.4f' % accu)
     return accu
 
 def train_knn_classifier(evaluator):
@@ -192,45 +375,7 @@ def compute_nns(zs_train_data, zs_image_samples, train_data, dataset):
         
     return nearestneighbours
 
-def plot_evolving_samples(images, nearestneighbours, fs=10, save_name=None):    
-    print('plotting evolution of samples..')
-    num_cols = images.shape[0]
-    num_rows = images.shape[1] * 2
-    images = images.squeeze().cpu().detach()
-    if images.min() < 0.0:
-        images = torch.clamp(images, min=-1, max=1)
-        images = images * 0.5 + 0.5
-    
-    nearestneighbours = nearestneighbours.squeeze().cpu().detach()
-    gs = gridspec.GridSpec(num_rows, num_cols)
-    gs.update(left=0.0 , bottom=0.0, right=1.0, top=0.95, wspace=0, hspace=0)
-    fig = plt.figure(figsize=(fs, fs * num_rows / num_cols))
-    for i in range(num_rows):
-        for j in range(num_cols):
-            ax = fig.add_subplot(gs[i, j])
-            if i % 2 == 0:
-                try:
-                    ax.imshow(images[j, int(i/2)], cmap='gray', vmin=0, vmax=1.0)
-                except:
-                    ax.imshow(np.transpose(images[j, int(i/2)], (1,2,0)), vmin=0, vmax=1.0)
-        
-            else:
-                try:
-                    ax.imshow(nearestneighbours[j, int((i-1)/2)], cmap='gray', vmin=0, vmax=1.0)
-                except:
-                    ax.imshow(np.transpose(nearestneighbours[j, int((i-1)/2)], (1,2,0)), vmin=0, vmax=1.0)   
 
-            ax.set_axis_off()
-            ax.set_xticks([])
-            ax.set_yticks([])
-            if j == 0:
-                ax.vlines(0, ymin=0, ymax=28, linewidth=2, colors=('#009988' if i % 2 ==0 else '#EE7733'))
-#                 rect = patches.Rectangle((0,0), 27*10, 27, linewidth=2, edgecolor=('#009988' if i % 2 ==0 else '#EE7733'),facecolor='none')            
-#                 ax.add_patch(rect)
-    plt.suptitle('---> Random Walks', fontsize=10)
-    if save_name is not None:
-        plt.savefig('samples/' + save_name + '_walks.png', dpi=300)
-        plt.close()
         
         
 class Evaluator_CLF():
@@ -369,6 +514,7 @@ class Evaluator_EBM():
         if init_samples is not None:
             images_ebm = torch.cat((init_samples.unsqueeze(0), images_ebm), 0)
         return images_ebm
+
     
     def uncond_sampling_ll(self, sample_size, batch_size, sgld_steps, sgld_lr, sgld_noise_std, init_images, grad_clipping=False, logging_interval=None):
         print('encoding initial images..')
@@ -499,9 +645,12 @@ class Evaluator_EBM():
         images = (images - 0.5) / 0.5
         labels = data['labels']
         images = images.cuda().to(self.device)
-        images = images + self.data_noise_std * torch.randn_like(images)
-        neural_ss1, neural_ss2 = self.ebm.forward(images)
-        mean, sigma = nats_to_params(self.ebm.prior_nat1+neural_ss1, self.ebm.prior_nat2+neural_ss2)
+#         images = images + self.data_noise_std * torch.randn_like(images)
+        try:
+            neural_ss1, neural_ss2 = self.ebm.forward(images)
+            mean, sigma = nats_to_params(self.ebm.prior_nat1+neural_ss1, self.ebm.prior_nat2+neural_ss2)
+        except:
+            mean = self.ebm.forward(images)
         zs.append(mean.squeeze().cpu().detach().numpy())
         ys.append(labels)
         zs = np.concatenate(zs, 0)
@@ -562,32 +711,6 @@ class Evaluator_VAE():
                 self.input_channels, self.im_height, self.im_width = 1, 28, 28
             else:
                 self.input_channels, self.im_height, self.im_width = 3, 32, 32 
-
-    def similarity_ebm_density_space(self, train_batch_size, test_batch_size):
-        """
-        For each test data point, compute the L2 norm distance from the training data in latent space,
-        return the confusion matrix
-        """
-        zs_test, ys_test = self.extract_features(train=False, shuffle=False)
-        zs_test = torch.Tensor(zs_test)
-        ys_test = torch.Tensor(ys_test)
-        pred_ys_test = []
-        train_data, _ = load_data(self.dataset, self.data_dir, train_batch_size, train=True, normalize=True, shuffle=False)
-        ys_train = torch.LongTensor(train_data.dataset.targets)
-        for b in range(int(len(ys_test) / test_batch_size)):
-            densities = []
-            zs_test_b = zs_test[(b)*test_batch_size:(b+1)*test_batch_size]
-            zs_test_b = zs_test_b.cuda().to(self.device)
-            for i, (train_images, train_labels) in enumerate(train_data):
-                train_images = train_images.cuda().to(self.device)
-                ll, log_prior = self.dec.forward_expand(zs_test_b, train_images)
-                log_joint = (ll + log_prior).cpu().detach()
-                densities.append(log_joint)
-            indices = torch.argmax(torch.cat(densities, 1), dim=-1) # test_size
-            pred_ys_test.append(ys_train[indices].unsqueeze(-1))
-            print('%d completed..' % (b+1))
-        pred_ys_test = torch.cat(pred_ys_test, 0)
-        return ys_test, pred_ys_test
     
     def plot_oods(self, dataset, train, score, sample_size=1000, batch_size=100, fs=8, density=False, save=False):
         print('OOD-Detection for VAE with %s..' % score)
@@ -906,6 +1029,31 @@ class Evaluator_EBM_GMM():
             images_ebm = torch.cat((init_samples.unsqueeze(0), images_ebm), 0)
         return images_ebm
     
+    def cond_sampling(self, class_label, batch_size, sgld_steps, sgld_lr, sgld_noise_std, grad_clipping=False, init_samples=None, logging_interval=None):
+        print('sample conditionally with class=%d..' % class_label)
+        sgld_sampler = SGLD_sampler(device=self.device,
+                                    input_channels=self.input_channels,
+                                    noise_std=sgld_noise_std,
+                                    lr=sgld_lr,
+                                    pixel_size=self.im_height,
+                                    buffer_size=None,
+                                    buffer_percent=None,
+                                    buffer_init=False,
+                                    buffer_dup_allowed=False,
+                                    grad_clipping=grad_clipping)
+        
+        images_ebm = sgld_sampler.sample_cond(class_label=class_label,
+                                         ebm=self.ebm, 
+                                         batch_size=batch_size, 
+                                         num_steps=sgld_steps,
+                                         pcd=False,
+                                         init_samples=init_samples,
+                                         logging_interval=logging_interval)
+        if init_samples is not None:
+            images_ebm = torch.cat((init_samples.unsqueeze(0), images_ebm), 0)
+        return images_ebm
+    
+    
     def uncond_sampling_ll(self, sample_size, batch_size, sgld_steps, sgld_lr, sgld_noise_std, init_images, grad_clipping=False, logging_interval=None):
         print('encoding initial images..')
         init_images = init_images.cuda().to(self.device)
@@ -1019,10 +1167,11 @@ class Evaluator_EBM_GMM():
 #             images = images + self.data_noise_std * torch.randn_like(images)
             neural_ss1, neural_ss2 = self.ebm.forward(images)
             pred_y = self.ebm.posterior_y(images)
-            mean_1tk, _ = nats_to_params(self.ebm.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.ebm.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
-#             pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
-#             mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
-            mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
+            prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
+            mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+            pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
+            mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
+#             mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
 #             mean = mean_1tk.mean(1)
             zs.append(mean.cpu().detach().numpy())
             ys.append(labels)
@@ -1040,10 +1189,11 @@ class Evaluator_EBM_GMM():
 #         images = images + self.data_noise_std * torch.randn_like(images)
         neural_ss1, neural_ss2 = self.ebm.forward(images)
         pred_y = self.ebm.posterior_y(images)
-        mean_1tk, _ = nats_to_params(self.ebm.prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), self.ebm.prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
-#         pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
-#         mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
-        mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
+        prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
+        mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+        pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
+        mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
+#         mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
 #         mean = mean_1tk.mean(1)
         zs.append(mean.cpu().detach().numpy())
         ys.append(labels)
