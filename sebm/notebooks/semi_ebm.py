@@ -1,9 +1,4 @@
-import torch
-from torchvision import datasets, transforms
-from sebm.data import load_data
-from sebm.eval import *
-from sebm.sgld import SGLD_sampler
-from sebm.models import EBM
+
 
 def iter_datasets(dataset):
     if dataset == 'mnist' or dataset =='fashionmnist':
@@ -51,6 +46,12 @@ def iter_datasets(dataset):
     evaluator = Evaluator_EBM(ebm, device, dataset, data_dir, data_noise_std=1e-2)    semi_nn_clf(model_name='vae', device=device, evaluator=evaluator, num_runs=10, num_epochs=100)
     semi_nn_clf(model_name='ebm', device=device, evaluator=evaluator, num_runs=10, num_epochs=100)
 if __name__ == '__main__':
+    import torch
+    from torchvision import datasets, transforms
+    from sebm.data import load_data
+    from sebm.eval import *
+    from sebm.sgld import SGLD_sampler
+    from sebm.models import EBM
     l = ['mnist', 'fashionmnist', 'cifar10', 'svhn']
     for dataset in l:
         iter_datasets(dataset)
