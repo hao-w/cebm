@@ -82,12 +82,13 @@ def iter_datasets(dataset):
     enc.load_state_dict(torch.load('../weights/final/cp-%s' % load_version)['enc_state_dict'])
     dec.load_state_dict(torch.load('../weights/final/cp-%s' % load_version)['dec_state_dict'])
 
-    from sebm.eval import *
+    
     evaluator = Evaluator_VAE(enc, dec, arch, device, dataset, data_dir)
     semi_nn_clf(model_name='vae', device=device, evaluator=evaluator, num_runs=10, num_epochs=100)
     
 if __name__ == '__main__':
     import torch
+    from sebm.eval import *
     from sebm.models import Encoder, Decoder
     from torchvision import datasets, transforms
     from sebm.data import load_data
