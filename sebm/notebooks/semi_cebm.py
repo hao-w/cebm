@@ -1,9 +1,3 @@
-import torch
-from torchvision import datasets, transforms
-from sebm.data import load_data
-from sebm.eval import *
-from sebm.cebm_sgld import init_cebm
-from sebm.sgld import SGLD_sampler
 def iter_datasets(dataset):
     if dataset == 'mnist' or dataset =='fashionmnist':
         input_channels, im_height, im_width = 1, 28, 28
@@ -51,6 +45,12 @@ ebm = ebm.cuda().to(device)
     evaluator = Evaluator_EBM(ebm, device, dataset, data_dir, data_noise_std=1e-2)
     semi_nn_clf(model_name='cebm', device=device, evaluator=evaluator, num_runs=10, num_epochs=100)
 if __name__ == '__main__':
+    import torch
+    from sebm.eval import *
+    from torchvision import datasets, transforms
+    from sebm.data import load_data
+    from sebm.cebm_sgld import init_cebm
+    from sebm.sgld import SGLD_sampler
     l = ['mnist', 'fashionmnist', 'cifar10', 'svhn']
     for dataset in l:
         iter_datasets(dataset)

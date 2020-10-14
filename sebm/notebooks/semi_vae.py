@@ -1,8 +1,4 @@
-%matplotlib inline
-import torch
-from sebm.models import Encoder, Decoder
-from torchvision import datasets, transforms
-from sebm.data import load_data
+
 def iter_datasets(dataset):
 
     if dataset == 'mnist' or dataset == 'fashionmnist':
@@ -91,6 +87,10 @@ def iter_datasets(dataset):
     semi_nn_clf(model_name='vae', device=device, evaluator=evaluator, num_runs=10, num_epochs=100)
     
 if __name__ == '__main__':
+    import torch
+    from sebm.models import Encoder, Decoder
+    from torchvision import datasets, transforms
+    from sebm.data import load_data
     l = ['mnist', 'fashionmnist', 'cifar10', 'svhn']
     for dataset in l:
         iter_datasets(dataset)
