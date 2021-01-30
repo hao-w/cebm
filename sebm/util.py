@@ -61,8 +61,8 @@ def dcnn_output_shape(h, w, kernels, strides, paddings=None):
         paddings = [0 for i in kernels]
     h_in = h
     w_in = w
-    for i, kernels in enumerate(kernels):
-        h_in, w_in = conv_output_shape((h_in, w_in), kernels[i], strides[i], paddings[i])
+    for i, kernel in enumerate(kernels):
+        h_in, w_in = deconv_output_shape((h_in, w_in), kernels[i], strides[i], paddings[i])
     return h_in, w_in
     
 def cnn_output_shape(h, w, kernels, strides, paddings=None):

@@ -47,6 +47,19 @@ class Train_procedure():
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
 
+#     def pcd(self, images_data):
+#         """
+#         we acquire samples from ebm using stochastic gradient langevin dynamics
+#         """ 
+#         trace = dict()
+#         batch_size, C, pixels_size, _ = images_data.shape
+#         energy_data = self.ebm.energy(images_data)
+#         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
+#         energy_ebm = ebm.energy(images_ebm)
+#         trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
+#         trace['energy_data'] = energy_data.detach().mean()
+#         trace['energy_ebm'] = energy_ebm.detach().mean()
+#         return trace
     def pcd(self, images_data):
         """
         we acquire samples from ebm using stochastic gradient langevin dynamics
@@ -79,10 +92,10 @@ class Train_procedure():
         torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
 
-def init_cebm(arch, ss, optimize_priors, device, **kwargs):
+def init_cebm(arch, ss, latent_dim, optimize_priors, device, **kwargs):
     model = eval('CEBM_%sss' % ss)
     print('Initialize Model=%s...' % model.__name__)
-    ebm = model(arch, optimize_priors, device, **kwargs)
+    ebm = model(arch, latent_dim, optimize_priors, device, **kwargs)
     return ebm
 
 if __name__ == "__main__":
@@ -108,17 +121,23 @@ if __name__ == "__main__":
     parser.add_argument('--optimize_priors', default=False, type=bool)
     parser.add_argument('--warmup_iters', default=1000, type=int)
     ## arch config
-    parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'simplenet2', 'wresnet'])
+    parser.add_argument('--arch', default='simplenet5', choices=['simplenet', 'simplenet2', 'simplenet5', 'wresnet'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
-    parser.add_argument('--channels', default="[64, 64, 32, 32]")
-    parser.add_argument('--kernels', default="[3, 4, 4, 4]")
-    parser.add_argument('--strides', default="[1, 2, 2, 2]")
-    parser.add_argument('--paddings', default="[1, 1, 1, 1]")
-    parser.add_argument('--hidden_dim', default="[128]")
-    parser.add_argument('--latent_dim', default=10, type=int)
-    parser.add_argument('--activation', default='Swish')
-    parser.add_argument('--leak', default=0.01, type=float)
+#     parser.add_argument('--channels', default="[64, 64, 32, 32]")
+#     parser.add_argument('--kernels', default="[3, 4, 4, 4]")
+#     parser.add_argument('--strides', default="[1, 2, 2, 2]")
+#     parser.add_argument('--paddings', default="[1, 1, 1, 1]")
+    
+    parser.add_argument('--channels', default="[64,128,256,512,256]")
+    parser.add_argument('--kernels', default="[4,4,4,4,4]")
+    parser.add_argument('--strides', default="[2,2,2,2,2]")
+    parser.add_argument('--paddings', default="[1,1,1,1,1]")
+    
+#     parser.add_argument('--hidden_dim', default="[128]")
+    parser.add_argument('--latent_dim', default=128, type=int)
+    parser.add_argument('--activation', default='LeakyReLU')
+    parser.add_argument('--leak', default=0.2, type=float)
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
@@ -132,19 +151,15 @@ if __name__ == "__main__":
     parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
-    parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
-
+    parser.add_argument('--dropout', default=0.2, type=float)
+    
     args = parser.parse_args()
     set_seed(args.seed)
     device = torch.device('cuda:%d' % args.device)
-    save_version = 'cebm_%sss-out=%s-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.ss, args.heldout_class, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
+    save_version = 'cebm_%sss-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.ss, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
-    if args.heldout_class == -1:
-        train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
-    else:
-        print('hold out class=%s' % args.heldout_class)
-        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=True)
+    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'wresnet':
         ebm = init_cebm(arch=args.arch,
@@ -157,6 +172,7 @@ if __name__ == "__main__":
                         latent_dim=args.latent_dim,
                         activation=args.activation,
                         leak=args.leak)
+        
     elif args.arch == 'simplenet' or args.arch == 'simplenet2':
         ebm = init_cebm(arch=args.arch,
                         ss=args.ss,
@@ -173,6 +189,26 @@ if __name__ == "__main__":
                         latent_dim=args.latent_dim,
                         activation=args.activation,
                         leak=args.leak)
+        
+    elif args.arch == 'simplenet5':
+        ebm = init_cebm(arch=args.arch,
+                        ss=args.ss,
+                        latent_dim=args.latent_dim,
+                        optimize_priors=args.optimize_priors,
+                        device=device,
+                        im_height=im_height, 
+                        im_width=im_width, 
+                        input_channels=input_channels, 
+                        channels=eval(args.channels), 
+                        kernels=eval(args.kernels), 
+                        strides=eval(args.strides), 
+                        paddings=eval(args.paddings), 
+                        activation=args.activation,
+                        leak=args.leak,
+                        last_act=False,
+                        batchnorm=True,
+                        dropout=args.dropout)
+        
     else:
         raise NotImplementError
         

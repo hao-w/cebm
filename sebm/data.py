@@ -354,11 +354,11 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         
         if train:
             train_dataset = datasets.SVHN(data_dir+'SVHN/', split='train', download=True, transform=transform)
-            extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
+#             extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
 
             data = torch.utils.data.DataLoader(
-#                             train_dataset,
-                            torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
+                            train_dataset,
+#                             torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
                             batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
@@ -437,7 +437,7 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         
     return data, img_dims
 
-def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, shuffle=True):
+def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, shuffle=False):
     f = torch.nn.Flatten()
     train_data, img_dims = load_data(dataset, data_dir, 1000, train=train, normalize=normalize, shuffle=shuffle)
     try:
@@ -452,7 +452,7 @@ def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, 
                 x = x[:, None, :, :]
             elif dataset == 'svhn':
                 x = x
-                print(x.shape)
+#                 print(x.shape)
             else:
                 x = np.transpose(x, (0, 3, 1, 2))
             
@@ -478,3 +478,26 @@ def load_data_as_array(dataset, data_dir, train, normalize=False, flatten=True, 
     if normalize:
         x = (x - 0.5) / 0.5
     return x, y
+
+def load_data_remove_labels(dataset, data_dir, num_shots, train=True, normalize=False, shuffle=False):
+    """
+    load a dataset and remove some of the labels for semi-supervised learning
+    """
+    xs, ys = load_data_as_array(dataset, data_dir, train, normalize=False, flatten=False)        
+    if num_shots == -1:
+        return xs, ys
+    else:
+        xs_permuted, ys_permuted = [], []
+        classes = np.unique(ys)
+        for k in range(len(classes)):
+            ys_k = ys[(ys == classes[k])]
+            xs_k = xs[(ys == classes[k])]
+            ind_k = np.random.permutation(np.arange(len(ys_k)))
+            ys_k = ys_k[ind_k]
+            xs_k = xs_k[ind_k]
+            ys_k[num_shots:] = -1
+            ys_permuted.append(ys_k)
+            xs_permuted.append(xs_k)
+        return np.concatenate(xs_permuted, 0), np.concatenate(ys_permuted, 0)
+    
+    
