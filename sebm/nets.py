@@ -13,7 +13,7 @@ class Swish(nn.Module):
     def forward(self, x):
         return x * torch.sigmoid(x)
         
-def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01):
+def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.1, last_act=True, batchnorm=False, dropout=None):
     """
     """
     if activation == 'Swish':
@@ -30,13 +30,23 @@ def _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, 
     in_c = input_channels
     for i, out_c in enumerate(channels):
         layers.append(nn.Conv2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i]))
+        if batchnorm:
+            layers.append(nn.BatchNorm2d(out_c))
         layers.append(act)
+        if dropout is not None:
+            layers.append(nn.Dropout2d(dropout))
         in_c = out_c
     out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
     flatten_output_dim = out_h * out_w * channels[-1]
+    if not last_act:
+        if dropout is not None:
+            layers = layers[:-1]
+        layers = layers[:-1]
+        if batchnorm:
+            layers = layers[:-1]
     return nn.Sequential(*layers), flatten_output_dim
 
-def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01, last_act=False):
+def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.1, last_act=False, batchnorm=False):
     """
     """
     if activation == 'Swish':
@@ -53,13 +63,17 @@ def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides,
     in_c = input_channels
     for i, out_c in enumerate(channels):
         layers.append(nn.ConvTranspose2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i]))
+        if batchnorm:
+            layers.append(nn.BatchNorm2d(out_c)) 
         layers.append(act)
         in_c = out_c
     if not last_act:
         layers = layers[:-1]
+        if batchnorm:
+            layers = layers[:-1]
     return nn.Sequential(*layers)
 
-def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.01, last_act=False):
+def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.1, last_act=False):
     """
     """
     if activation == 'Swish':
@@ -88,14 +102,17 @@ class Identity(nn.Module):
         super().__init__()
     def forward(self, x):
         return x
+
+    
+
     
 class SimpleNet(nn.Module):
     """
     Implementation of a cnn-mlp based network
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01, batchnorm=False):
         super().__init__()
-        self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak)
+        self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak, batchnorm=batchnorm)
         self.flatten = nn.Flatten()
         self.mlp_block = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
     def forward(self, x):
@@ -120,7 +137,7 @@ class SimpleNet3(nn.Module):
     """
     Implementation of a mlp-cnn based network that reverse the encoding procedure of SimpleNet2
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=0.01):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=0.01, batchnorm=False):
         super().__init__()
         channels.reverse()
         kernels.reverse()
@@ -131,12 +148,42 @@ class SimpleNet3(nn.Module):
         self.channels = channels[1:] + [input_channels]
         self.mlp_block = _mlp_block(mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=leak, last_act=True)
         self.input_h = int(math.sqrt(mlp_output_dim / self.input_channels))
-        self.dcnn_block = _dcnn_block(self.input_h, self.input_h, self.input_channels, self.channels, kernels, strides, paddings, activation, leak=leak)       
+        self.dcnn_block = _dcnn_block(self.input_h, self.input_h, self.input_channels, self.channels, kernels, strides, paddings, activation, leak=leak, batchnorm=batchnorm)       
     def forward(self, x):
         h = self.mlp_block(x)
         h =h.view(h.shape[0], self.input_channels, self.input_h, self.input_h)
         return self.dcnn_block(h)
-             
+
+class SimpleNet4(nn.Module):
+    """
+    Implementation of a cnn based network
+    """
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01, batchnorm=False):
+        super().__init__()
+#         channels.reverse()
+#         kernels.reverse()
+#         strides.reverse()
+#         paddings.reverse()
+#         hidden_dim.reverse()
+#         self.input_channels = channels[0]
+#         self.channels = channels[1:] + [input_channels]
+#         self.mlp_block = _mlp_block(mlp_input_dim, hidden_dim, mlp_output_dim, activation, leak=leak, last_act=True)
+#         self.input_h = int(math.sqrt(mlp_output_dim / self.input_channels))
+        self.dcnn_block = _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak, batchnorm=batchnorm)  
+#     im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.1, last_act=False, batchnorm=False)
+    def forward(self, x):
+        return self.dcnn_block(x)
+
+class SimpleNet5(nn.Module):
+    """
+    Implementation of a cnn-mlp based network
+    """
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=0.01, last_act=False, batchnorm=False, dropout=None):
+        super().__init__()
+        self.cnn_block, _ = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak, last_act=last_act, batchnorm=batchnorm, dropout=dropout)
+    def forward(self, x):
+        return self.cnn_block(x)
+    
 class MLPNet2(nn.Module):
     """
     Implementation of a mlp based network

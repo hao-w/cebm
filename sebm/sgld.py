@@ -149,3 +149,51 @@ class SGLD_sampler():
         if pcd:
             self.refine_buffer(samples, inds)
         return samples
+    
+    def nsgd_steps_cond(self, class_label, ebm, samples, num_steps, logging_interval=None):
+        """
+        perform noisy gradient descent steps and return updated samples 
+        """
+        list_samples = []
+        for l in range(num_steps):
+            samples.requires_grad = True
+            grads = torch.autograd.grad(outputs=ebm.energy_cond(samples, class_label).sum(), inputs=samples)[0]
+            if self.grad_clipping:
+                grads = torch.clamp(grads, min=-1e-2, max=1e-2)
+            samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
+            if logging_interval is not None:
+                if (l+1) % logging_interval == 0:
+                    list_samples.append(samples.unsqueeze(0).detach())  
+        if logging_interval is not None:
+            samples = torch.cat(list_samples, 0)
+        else:
+            samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
+        assert samples.requires_grad == False, "samples should not require gradient."
+        return samples
+    
+    def sample_cond(self, class_label, ebm, batch_size, num_steps, pcd=True, init_samples=None, logging_interval=None):
+        """
+        perform update using slgd
+        pcd means that we sample from replay buffer (with a frequency)
+        if buffer is not initialized in advance, we check its storage and 
+        init from random noise if storage is smaller than batch_size.
+        """
+        if pcd:
+            if self.buffer_init:
+                samples, inds = self.sample_from_buffer(batch_size)
+            else:
+                if self.buffer is not None and len(self.buffer) >= batch_size:     
+                    samples, _ = self.sample_from_buffer(batch_size)
+                else: 
+                    samples = self.initial_dist.sample((batch_size, ))
+                inds = None
+        else:
+            if init_samples is None:
+                samples = self.initial_dist.sample((batch_size, ))
+            else:
+                samples = init_samples
+        samples = self.nsgd_steps_cond(class_label, ebm, samples, num_steps, logging_interval=logging_interval)
+        ## refine buffer if pcd
+        if pcd:
+            self.refine_buffer(samples, inds)
+        return samples
