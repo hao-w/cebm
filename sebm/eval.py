@@ -894,15 +894,15 @@ class Evaluator_EBM():
 #             mean_z, _ = nats_to_params(self.ebm.prior_nat1+neural_ss1, self.ebm.prior_nat2+neural_ss2)
         return list_images
     
-    def plot_final_samples(self, images, fs=10, save=False):
+    def plot_final_samples(self, images, fs=1, save=False):
         print('plotting the samples..')
         test_batch_size = len(images)
         images = images.squeeze().cpu().detach()
         images = torch.clamp(images, min=-1, max=1)
         images = images * 0.5 + 0.5
         gs = gridspec.GridSpec(int(test_batch_size/10), 10)
-        gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0, hspace=0)
-        fig = plt.figure(figsize=(fs, fs*int(test_batch_size/10)/ 10))
+        gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
+        fig = plt.figure(figsize=(fs*10, fs*int(test_batch_size/10)))
         for i in range(test_batch_size):
             ax = fig.add_subplot(gs[int(i/10), i%10])
             try:
