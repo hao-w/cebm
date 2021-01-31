@@ -201,6 +201,7 @@ class CEBM_2ss(nn.Module):
     def __init__(self, arch, latent_dim, optimize_priors, device, **kwargs):
         super().__init__()
         if arch == 'simplenet2':
+            kwargs['latent_dim'] = latent_dim
             self.ebm_net = SimpleNet2(**kwargs)
         elif arch == 'simplenet':
             self.ebm_net = SimpleNet(**kwargs)

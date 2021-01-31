@@ -60,6 +60,7 @@ class Train_procedure():
 #         trace['energy_data'] = energy_data.detach().mean()
 #         trace['energy_ebm'] = energy_ebm.detach().mean()
 #         return trace
+
     def pcd(self, images_data):
         """
         we acquire samples from ebm using stochastic gradient langevin dynamics
@@ -129,15 +130,15 @@ if __name__ == "__main__":
 #     parser.add_argument('--strides', default="[1, 2, 2, 2]")
 #     parser.add_argument('--paddings', default="[1, 1, 1, 1]")
     
-    parser.add_argument('--channels', default="[64,128,256,512,256]")
-    parser.add_argument('--kernels', default="[4,4,4,4,4]")
-    parser.add_argument('--strides', default="[2,2,2,2,2]")
-    parser.add_argument('--paddings', default="[1,1,1,1,1]")
+    parser.add_argument('--channels', default="[64,128,256,512]")
+    parser.add_argument('--kernels', default="[4,4,4,4]")
+    parser.add_argument('--strides', default="[2,2,2,2]")
+    parser.add_argument('--paddings', default="[1,1,1,1]")
     
-#     parser.add_argument('--hidden_dim', default="[128]")
+    parser.add_argument('--hidden_dim', default="[128]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='LeakyReLU')
-    parser.add_argument('--leak', default=0.2, type=float)
+    parser.add_argument('--leak', default=0.1, type=float)
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
@@ -150,8 +151,8 @@ if __name__ == "__main__":
     parser.add_argument('--sgld_num_steps', default=50, type=int)
     parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
-    parser.add_argument('--regularize_factor', default=1e-3, type=float)
-    parser.add_argument('--dropout', default=0.2, type=float)
+    parser.add_argument('--regularize_factor', default=1e-2, type=float)
+    parser.add_argument('--dropout', default=None, type=float)
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -188,7 +189,8 @@ if __name__ == "__main__":
                         hidden_dim=eval(args.hidden_dim),
                         latent_dim=args.latent_dim,
                         activation=args.activation,
-                        leak=args.leak)
+                        leak=args.leak,
+                        dropout=args.dropout)
         
     elif args.arch == 'simplenet5':
         ebm = init_cebm(arch=args.arch,
@@ -206,7 +208,7 @@ if __name__ == "__main__":
                         activation=args.activation,
                         leak=args.leak,
                         last_act=False,
-                        batchnorm=True,
+                        batchnorm=False,
                         dropout=args.dropout)
         
     else:

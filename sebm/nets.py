@@ -123,7 +123,7 @@ class SimpleNet2(nn.Module):
     """
     Implementation of a cnn-mlp based network
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01, last_act=False, batchnorm=False, dropout=None):
         super().__init__()
         self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak)
         self.flatten = nn.Flatten()
