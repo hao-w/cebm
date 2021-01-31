@@ -60,6 +60,7 @@ class Train_procedure():
 #         trace['energy_data'] = energy_data.detach().mean()
 #         trace['energy_ebm'] = energy_ebm.detach().mean()
 #         return trace
+
     def pcd(self, images_data):
         """
         we acquire samples from ebm using stochastic gradient langevin dynamics
@@ -188,7 +189,8 @@ if __name__ == "__main__":
                         hidden_dim=eval(args.hidden_dim),
                         latent_dim=args.latent_dim,
                         activation=args.activation,
-                        leak=args.leak)
+                        leak=args.leak,
+                        dropout=args.dropout)
         
     elif args.arch == 'simplenet5':
         ebm = init_cebm(arch=args.arch,
@@ -207,7 +209,7 @@ if __name__ == "__main__":
                         leak=args.leak,
                         last_act=False,
                         batchnorm=False,
-                        dropout=None)
+                        dropout=args.dropout)
         
     else:
         raise NotImplementError
