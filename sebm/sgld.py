@@ -54,6 +54,7 @@ class SGLD_sampler():
         list_samples = []
         samples.requires_grad = True
         for l in range(num_steps):
+            
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
@@ -147,7 +148,7 @@ class SGLD_sampler():
         samples = self.nsgd_steps(ebm, samples, num_steps, logging_interval=logging_interval)
         ## refine buffer if pcd
         if pcd:
-            self.refine_buffer(samples, inds)
+            self.refine_buffer(samples.detach(), inds)
         return samples
     
     def nsgd_steps_cond(self, class_label, ebm, samples, num_steps, logging_interval=None):
