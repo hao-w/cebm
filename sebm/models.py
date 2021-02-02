@@ -4,37 +4,69 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 from torch.distributions.bernoulli import Bernoulli
+from torch.distributions.one_hot_categorical import OneHotCategorical as cat
 from sebm.gaussian_params import nats_to_params, params_to_nats
 
 class Discriminator_BIGAN(nn.Module):
     """
     Discriminator in BIGAN
     """
-    def __init__(self, arch, latent_dim, **kwargs):
+    def __init__(self, arch, latent_dim, cnn_output_dim, hidden_dim, **kwargs):
         super().__init__()
         if arch == 'simplenet':
             self.x_enc_net = SimpleNet5(**kwargs)
-            self.disc_net = SimpleNet5(im_height=1,
-                                        im_width=1,
-                                        input_channels=int(2*latent_dim),
-                                        channels=[int(2*latent_dim), int(2*latent_dim), 1],
-                                        kernels=[1,1,1],
-                                        strides=[1,1,1],
-                                        paddings=[0,0,0],
-                                        activation=kwargs['activation'],
-                                        leak=kwargs['leak'],
-                                        last_act=False,
-                                        batchnorm=False)
-            
+            self.flatten = nn.Flatten()
+#             self.disc_net = SimpleNet5(im_height=1,
+#                                         im_width=1,
+#                                         input_channels=int(2*latent_dim),
+#                                         channels=[int(2*latent_dim), int(2*latent_dim), 1],
+#                                         kernels=[1,1,1],
+#                                         strides=[1,1,1],
+#                                         paddings=[0,0,0],
+#                                         activation=kwargs['activation'],
+#                                         leak=kwargs['leak'],
+#                                         last_act=False,
+#                                         batchnorm=False)
+            self.disc_net = _mlp_block(input_dim=cnn_output_dim+latent_dim,
+                                       hidden_dim=hidden_dim,
+                                       latent_dim=1,
+                                       activation=kwargs['activation'])
         else:
             raise NotImplementError # will implement wresnet-28-10 later
         self.sigmoid = nn.Sigmoid()
     
     def binary_pred(self, x, z):
-        features = self.x_enc_net(x)
-        assert features.shape == z.shape, 'feature shape=%s, z shape=%s' % (features.shape, z.shape)
-        xz = torch.cat((features, z), dim=1)
+        features = self.flatten(self.x_enc_net(x))
+#         assert features.shape == z.shape, 'feature shape=%s, z shape=%s' % (features.shape, z.shape)
+        xz = torch.cat((features, z.squeeze()), dim=1)
         return self.sigmoid(self.disc_net(xz)).squeeze()
+
+# class Encoder_BIGAN(nn.Module):
+#     """
+#     An encoder in BIGAN
+#     """
+#     def __init__(self, arch, latent_dim, cnn_output_dim, hidden_dim, reparameterized, **kwargs):
+#         super(self.__class__, self).__init__()
+        
+#         if arch == 'simplenet':
+#              self.enc_net = SimpleNet5(**kwargs)
+#         else:
+#             raise NotImplementError
+#         self.reparameterized = reparameterized
+#         self.arch = arch
+#         self.latent_dim = latent_dim
+#         self.flatten = nn.Flatten()
+#         self.mlp_net = 
+        
+#     def forward(self, images):
+#         mu, log_sigma = self.enc_net(images)
+#         q_dist = Normal(mu, log_sigma.exp())
+#         if self.reparameterized:
+#             latents = q_dist.rsample()
+#         else:
+#             latents = q_dist.sample()
+#         log_prob = q_dist.log_prob(latents).sum(-1).view(S, B)
+#         return latents
     
 class Encoder_BIGAN(nn.Module):
     """
@@ -55,8 +87,6 @@ class Encoder_BIGAN(nn.Module):
         if self.arch == 'simplenet':
             output = self.enc_net(images)
         mu, log_sigma = output[:, :self.latent_dim, :, :], output[:, self.latent_dim:, :, :]
-#         print(mu.shape)
-#         print(log_sigma.shape)
         q_dist = Normal(mu, log_sigma.exp())
         if self.reparameterized:
             latents = q_dist.rsample()
@@ -77,7 +107,7 @@ class Generator(nn.Module):
         else:
             raise NotImplementError
         self.tanh = nn.Tanh()
-        
+#         self.sigmoid = nn.Sigmoid()
         self.noise_mu = torch.zeros(1).cuda().to(device)
         self.noise_sigma = torch.ones(1).cuda().to(device)
         self.noise_dist = Normal(self.noise_mu, self.noise_sigma)
@@ -86,6 +116,37 @@ class Generator(nn.Module):
         z = self.noise_dist.sample((sample_size, self.latent_dim, 1, ))
         assert z.shape == (sample_size,self.latent_dim,1,1)
         x = self.tanh(self.gen_net(z))
+#         x = self.sigmoid(self.gen_net(z))
+        return z, x
+
+class Generator_GMM(nn.Module):
+    """
+    A Generator in GAN where noise is sampled from a GMM
+    """
+    def __init__(self, arch, K, device, **kwargs):
+        super(self.__class__, self).__init__()
+        if arch == 'simplenet':
+            self.gen_net = SimpleNet4(**kwargs)
+            self.latent_dim = kwargs['input_channels']
+        else:
+            raise NotImplementError
+        self.tanh = nn.Tanh()
+        self.prior_mu = 0.31 * torch.randn((K, self.latent_dim)).cuda().to(device)
+        self.prior_log_sigma = (5*torch.rand((K, self.latent_dim)) + 1.0).log().cuda().to(device)
+        self.prior_mu = nn.Parameter(self.prior_mu)
+        self.prior_log_sigma = nn.Parameter(self.prior_log_sigma)
+        self.prior_pi = (torch.ones(K) / K).cuda().to(device)
+        self.component_dist = cat(probs=self.prior_pi)
+        
+    def forward(self, sample_size):
+        y = self.component_dist.sample((sample_size,))
+        y = y.argmax(-1)
+        assert y.shape == (sample_size,)
+        z = Normal(self.prior_mu[y], self.prior_log_sigma[y].exp()).rsample().unsqueeze(-1).unsqueeze(-1)
+#         z = self.noise_dist.sample((sample_size, self.latent_dim, 1, ))
+        assert z.shape == (sample_size,self.latent_dim,1,1)
+        x = self.tanh(self.gen_net(z))
+#         x = self.sigmoid(self.gen_net(z))
         return z, x
 
 class Discriminator(nn.Module):

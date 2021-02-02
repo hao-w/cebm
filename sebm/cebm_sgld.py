@@ -70,7 +70,7 @@ class Train_procedure():
         energy_data = self.ebm.energy(images_data)
         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
-        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
+        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
         trace['energy_data'] = energy_data.detach().mean()
         trace['energy_ebm'] = energy_ebm.detach().mean()
         return trace

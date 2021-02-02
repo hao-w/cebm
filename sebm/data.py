@@ -354,11 +354,11 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
         
         if train:
             train_dataset = datasets.SVHN(data_dir+'SVHN/', split='train', download=True, transform=transform)
-#             extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
+            extra_dataset = datasets.SVHN(data_dir+'SVHN/', split='extra', download=True, transform=transform)
 
             data = torch.utils.data.DataLoader(
-                            train_dataset,
-#                             torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
+#                             train_dataset,
+                            torch.utils.data.ConcatDataset([train_dataset, extra_dataset]),
                             batch_size=batch_size, shuffle=shuffle)
         else:
             data = torch.utils.data.DataLoader(
