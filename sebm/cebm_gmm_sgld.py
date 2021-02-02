@@ -74,8 +74,8 @@ class Train_procedure():
     def save_checkpoints(self):
         checkpoint_dict  = {
             'model_state_dict': self.ebm.state_dict(),
-            'prior_nat1' : self.ebm.prior_nat1,
-            'prior_nat2' : self.ebm.prior_nat2
+            'prior_mu' : self.ebm.prior_mu,
+            'prior_log_sigma' : self.ebm.prior_log_sigma
             }
         torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
