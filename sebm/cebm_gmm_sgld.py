@@ -45,6 +45,7 @@ class Train_procedure():
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
+        torch.save(sgld_sampler.buffer, 'weights/buffer-%s' % self.save_version)
 
     def pcd(self, images_data):
         """
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
-    parser.add_argument('--buffer_size', default=5000, type=int)
+    parser.add_argument('--buffer_size', default=10000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
     parser.add_argument('--buffer_init', default=False, action='store_true')
     parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')
