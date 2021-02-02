@@ -46,6 +46,7 @@ class Train_procedure():
             self.logging(metrics=metrics, N=b+1, epoch=epoch)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
+        torch.save(sgld_sampler.buffer, 'weights/buffer-%s' % self.save_version)
 
 #     def pcd(self, images_data):
 #         """
@@ -70,7 +71,7 @@ class Train_procedure():
         energy_data = self.ebm.energy(images_data)
         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
-        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
+        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * ((energy_data**2).mean() + (energy_ebm**2).mean())
         trace['energy_data'] = energy_data.detach().mean()
         trace['energy_ebm'] = energy_ebm.detach().mean()
         return trace
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
-    parser.add_argument('--buffer_size', default=5000, type=int)
+    parser.add_argument('--buffer_size', default=10000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
     parser.add_argument('--buffer_init', default=False, action='store_true')
     parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')

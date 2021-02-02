@@ -73,7 +73,7 @@ def _dcnn_block(im_height, im_width, input_channels, channels, kernels, strides,
             layers = layers[:-1]
     return nn.Sequential(*layers)
 
-def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.1, last_act=False):
+def _mlp_block(input_dim, hidden_dim, latent_dim, activation, leak=0.2, last_act=False):
     """
     """
     if activation == 'Swish':

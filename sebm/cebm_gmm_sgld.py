@@ -46,6 +46,7 @@ class Train_procedure():
             self.logging(metrics=metrics, N=b+1, epoch=epoch, ts=time_end-time_start)
             time_end = time.time()
             print("Epoch=%d / %d completed  in (%ds),  " % (epoch+1, self.num_epochs, time_end - time_start))
+        torch.save(sgld_sampler.buffer, 'weights/buffer-%s' % self.save_version)
 
     def pcd(self, images_data):
         """
@@ -56,7 +57,7 @@ class Train_procedure():
         energy_data = self.ebm.energy(images_data)
         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
-        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
+        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * ((energy_data**2).mean() +(energy_ebm**2).mean())
         trace['energy_data'] = energy_data.detach().mean()
         trace['energy_ebm'] = energy_ebm.detach().mean()
         return trace
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     ## training config
     parser.add_argument('--num_epochs', default=200, type=int)
     ## sgld sampler config
-    parser.add_argument('--buffer_size', default=5000, type=int)
+    parser.add_argument('--buffer_size', default=10000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
     parser.add_argument('--buffer_init', default=False, action='store_true')
     parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
     parser.add_argument('--regularize_factor', default=1e-3, type=float)
-    parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
+#     parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
 
     args = parser.parse_args()
     set_seed(args.seed)
@@ -133,11 +134,7 @@ if __name__ == "__main__":
     save_version = 'cebm_gmm_k=%d-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.num_clusters, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
-    if args.heldout_class == -1:
-        train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True)
-    else:
-        print('hold out class=%s' % args.heldout_class)
-        train_data, img_dims = load_mnist_heldout(args.data_dir, args.batch_size, args.heldout_class, train=True, normalize=True)
+    train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, normalize=True)
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'simplenet' or args.arch == 'simplenet2':
         ebm = CEBM_GMM_2ss(K=args.num_clusters,

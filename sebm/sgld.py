@@ -52,21 +52,21 @@ class SGLD_sampler():
         perform noisy gradient descent steps and return updated samples 
         """
         list_samples = []
-        samples.requires_grad = True
+        
         for l in range(num_steps):
-            
+            samples.requires_grad = True
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             if self.grad_clipping:
                 grads = torch.clamp(grads, min=-1e-2, max=1e-2)
-            samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads))# .detach()
+            samples = (samples - (self.lr / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
             if logging_interval is not None:
                 if (l+1) % logging_interval == 0:
                     list_samples.append(samples.unsqueeze(0).detach())  
         if logging_interval is not None:
             samples = torch.cat(list_samples, 0)
-#         else:
-#             samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
-#         assert samples.requires_grad == False, "samples should not require gradient."
+        else:
+            samples = samples.detach() ## added this extra detachment step, becase the last update keeps the variable in the graph somehow, need to figure out why.
+        assert samples.requires_grad == False, "samples should not require gradient."
         return samples
     
     def refine_buffer(self, samples, inds):

@@ -607,7 +607,7 @@ class Evaluator_GAN():
         print('plotting the samples..')
         _, fake_images = self.gen.forward(batch_size)
         fake_images = (fake_images * 0.5 + 0.5).cpu().detach().squeeze().data.numpy()
-
+#         fake_images = fake_images.cpu().detach().squeeze().data.numpy()
         gs = gridspec.GridSpec(int(batch_size/10), 10)
         gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
         fig = plt.figure(figsize=(fs*10, fs*int(batch_size/10)))
