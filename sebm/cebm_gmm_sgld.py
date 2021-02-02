@@ -133,6 +133,7 @@ if __name__ == "__main__":
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
     train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, normalize=True)
+
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'simplenet' or args.arch == 'simplenet2':
         ebm = CEBM_GMM_2ss(K=args.num_clusters,
