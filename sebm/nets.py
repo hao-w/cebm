@@ -102,9 +102,7 @@ class Identity(nn.Module):
         super().__init__()
     def forward(self, x):
         return x
-
     
-
     
 class SimpleNet(nn.Module):
     """
@@ -123,9 +121,9 @@ class SimpleNet2(nn.Module):
     """
     Implementation of a cnn-mlp based network
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01, last_act=False, batchnorm=False, dropout=None):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dim, latent_dim, activation, leak=0.01, last_act=False, batchnorm=False):
         super().__init__()
-        self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak)
+        self.cnn_block, self.mlp_input_dim = _cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, leak=leak, batchnorm=batchnorm)
         self.flatten = nn.Flatten()
         self.mlp_block1 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)
         self.mlp_block2 = _mlp_block(self.mlp_input_dim, hidden_dim, latent_dim, activation, leak=leak)

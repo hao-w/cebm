@@ -17,6 +17,90 @@ import time
 from tqdm import tqdm
 from sebm.models import Clf
 
+        
+        
+class Evaluator_GAN():
+    """
+    evaluator for a GAN
+    """
+    def __init__(self, models, device, dataset, data_dir):
+        super(self.__class__, self).__init__()
+        try:
+            self.disc, self.gen, self.enc = models
+            self.gan_type = 'bigan'
+        except:
+            self.disc, self.gen = models
+            self.gan_type = 'dcgan'
+        self.device = device
+        self.dataset = dataset
+        self.data_dir = data_dir
+        
+        if dataset == 'mnist' or dataset =='fashionmnist':
+            self.input_channels, self.im_height, self.im_width = 1, 28, 28
+        else:
+            self.input_channels, self.im_height, self.im_width = 3, 32, 32
+    
+    def plot_samples(self, batch_size=100, fs=0.7, save=False):
+        print('plotting the samples..')
+        _, fake_images = self.gen.forward(batch_size)
+        fake_images = (fake_images * 0.5 + 0.5).cpu().detach().squeeze().data.numpy()
+#         fake_images = fake_images.cpu().detach().squeeze().data.numpy()
+        gs = gridspec.GridSpec(int(batch_size/10), 10)
+        gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
+        fig = plt.figure(figsize=(fs*10, fs*int(batch_size/10)))
+        for i in range(batch_size):
+            ax = fig.add_subplot(gs[int(i/10), i%10])
+            try:
+                ax.imshow(fake_images[i], cmap='gray', vmin=0, vmax=1.0)
+            except:
+                ax.imshow(np.transpose(fake_images[i], (1,2,0)), vmin=0, vmax=1.0)
+            ax.set_axis_off()
+            ax.set_xticks([])
+            ax.set_yticks([])
+        if save:
+            plt.savefig('samples/gan_fake_samples_%s.png' % self.dataset, dpi=300)
+            plt.close()
+    
+    def extract_features(self, train, shuffle=False):
+        test_data, img_dims = load_data(self.dataset, self.data_dir, 1000, train=train, normalize=True, shuffle=shuffle)
+        zs = []
+        ys = []
+        for (images, labels) in test_data:
+            images = images.cuda().to(self.device)
+            if self.gan_type == 'dcgan' or self.gan_type == 'dcgan_gmm':    
+                latent = self.disc.forward(images)
+                zs.append(latent.cpu().detach().numpy())
+            elif self.gan_type == 'bigan' or self.gan_type == 'bigan_gmm':
+                latent = self.enc(images)
+                zs.append(latent.squeeze().cpu().detach().numpy())
+            else:
+                raise NotIplementError
+            
+            ys.append(labels)
+        zs = np.concatenate(zs, 0)
+        ys = np.concatenate(ys, 0)
+        return zs, ys
+
+    def extract_features_fewshots(self, data):
+        zs = []
+        ys = []
+        images = data['images']
+        images = (images - 0.5) / 0.5
+        labels = data['labels']
+        images = images.cuda().to(self.device)
+        if self.gan_type == 'dcgan' or self.gan_type == 'dcgan_gmm': 
+            latent = self.disc.forward(images)
+            zs.append(latent.cpu().detach().numpy())
+        elif self.gan_type == 'bigan' or self.gan_type == 'bigan_gmm':
+            latent = self.enc(images)
+            zs.append(latent.squeeze().cpu().detach().numpy())
+        else:
+            raise NotIplementError        
+        ys.append(labels)
+        zs = np.concatenate(zs, 0)
+        ys = np.concatenate(ys, 0)
+        return zs, ys
+
 def plot_likelihood_cond_samples(images_ebm, fs=2, save_name=None):    
     num_rows, num_cols = len(images_ebm[0]), len(images_ebm)
     gs = gridspec.GridSpec(num_rows, num_cols)
@@ -445,249 +529,6 @@ class Evaluator_CLF():
         accuracy /= N
         print('Dataset=%s, Test Accuracy=%.4f' % (self.dataset, accuracy))            
         
-        
-        
-class Evaluator_GAN():
-    """
-    evaluator for a GAN
-    """
-    def __init__(self, models, device, dataset, data_dir):
-        super(self.__class__, self).__init__()
-        try:
-            self.disc, self.gen, self.enc = models
-            self.gan_type = 'bigan'
-        except:
-            self.disc, self.gen = models
-            self.gan_type = 'dcgan'
-        self.device = device
-        self.dataset = dataset
-        self.data_dir = data_dir
-        
-        if dataset == 'mnist' or dataset =='fashionmnist':
-            self.input_channels, self.im_height, self.im_width = 1, 28, 28
-        else:
-            self.input_channels, self.im_height, self.im_width = 3, 32, 32
-            
-    def similarity_z_space_score(self, dataset_ood, train_batch_size, test_batch_size):
-        """
-        For each test data point, compute the L2 norm distance from the training data in latent space,
-        return the confusion matrix
-        """
-        zs_train, ys_train = self.extract_features(self.dataset, train=True, shuffle=False)
-        zs_test, ys_test = self.extract_features(self.dataset, train=False, shuffle=False)
-        zs_ood, ys_ood = self.extract_features(dataset_ood, train=False, shuffle=False)
-
-        zs_train = torch.Tensor(zs_train)
-        zs_test = torch.Tensor(zs_test)
-        ys_train = torch.Tensor(ys_train)
-        ys_test = torch.Tensor(ys_test)
-        zs_ood = torch.Tensor(zs_ood)
-        ys_ood = torch.Tensor(ys_ood)
-        score_ind = []
-        score_ood = []
-        for b in range(int(len(ys_test) / test_batch_size)):
-            zs_test_b = zs_test[(b)*test_batch_size:(b+1)*test_batch_size]
-            zs_test_b = zs_test_b.unsqueeze(1).repeat(1, train_batch_size, 1)
-            distances = []
-            for i in range(int(len(ys_train) / train_batch_size)):
-                zs_train_b = zs_train[(i)*train_batch_size:(i+1)*train_batch_size]                
-                zs_train_b = zs_train_b.repeat(test_batch_size, 1, 1)
-                sq_norm = ((zs_train_b - zs_test_b) ** 2).sum(-1)
-                distances.append(sq_norm)
-            distances = torch.cat(distances, 1)
-            scores_ind_b,_ = torch.min(distances, dim=-1) # test_size
-            score_ind.append(scores_ind_b.unsqueeze(-1))
-            print('%d completed..' % (b+1))
-        score_ind = torch.cat(score_ind, 0).squeeze(-1)
-        for b in range(int(len(ys_ood) / test_batch_size)):
-            zs_ood_b = zs_ood[(b)*test_batch_size:(b+1)*test_batch_size]
-            zs_ood_b = zs_ood_b.unsqueeze(1).repeat(1, train_batch_size, 1)
-            distances = []
-            for i in range(int(len(ys_train) / train_batch_size)):
-                zs_train_b = zs_train[(i)*train_batch_size:(i+1)*train_batch_size]                
-                zs_train_b = zs_train_b.repeat(test_batch_size, 1, 1)
-                sq_norm = ((zs_train_b - zs_test_b) ** 2).sum(-1)
-                distances.append(sq_norm)
-            distances = torch.cat(distances, 1)
-            scores_ood_b,_ = torch.min(distances, dim=-1) # test_size
-            score_ood.append(scores_ood_b.unsqueeze(-1))
-            print('%d completed..' % (b+1))
-        score_ood = torch.cat(score_ood, 0).squeeze(-1)
-        return score_ind, score_ood
-
-    def plot_oods(self, dataset_ood, score, train, fs=8, density=False, save=False):
-        print('extract mean feature of data using EBM..')
-        if score == 'energy':
-            score_ind = - self.extract_energy(self.dataset, train=False)
-            score_ood = - self.extract_energy(dataset_ood, train=False)
-        elif score == 'gradient':
-            score_ind = - self.extract_pm(self.dataset, train=False)
-            score_ood = - self.extract_pm(dataset_ood, train=False)
-        elif score == '1nn':
-            score_ind, score_ood = self.similarity_z_space_score(dataset_ood, train_batch_size=2000, test_batch_size=2000)
-        else:
-            raise NotImplementError
-            
-        fig = plt.figure(figsize=(fs*2,fs))
-        ax = fig.add_subplot(1, 1, 1)
-        _ = ax.hist(score_ind, bins=100, label='in-dist (%s)' % self.dataset, alpha=.3, density=density)
-        ax.set_title('Train on %s' % self.dataset, fontsize=14)
-        _ = ax.hist(score_ood, bins=100, label='out-of-dist (%s)' % dataset_ood, alpha=.3, density=density)
-        ax.legend(fontsize=14)
-        ax.set_xlabel('score')
-        if save:
-            plt.savefig('CEBM_OOD_in=%s_out=%s.png' % (self.dataset, dataset_ood), dpi=300)    
-                        
-    def oodauc(self, dataset_ood, score):
-        """
-        score : energy or gradient
-        """
-        if score == 'energy':
-            score_ind = - self.extract_energy(self.dataset, train=False)
-            score_ood = - self.extract_energy(dataset_ood, train=False)
-        elif score == 'gradient':
-            score_ind = - self.extract_pm(self.dataset, train=False)
-            score_ood = - self.extract_pm(dataset_ood, train=False)
-        else:
-            raise NotImplementError
-        labels_ind = np.ones_like(score_ind)
-        labels_ood = np.zeros_like(score_ood)
-        scores = np.concatenate([score_ind, score_ood])
-        labels = np.concatenate([labels_ind, labels_ood])
-        return roc_auc_score(labels, scores)
-    
-    def similarity_ebm_density_space(self, train_batch_size, test_batch_size):
-        """
-        For each test data point, compute the L2 norm distance from the training data in latent space,
-        return the confusion matrix
-        """
-        zs_test, ys_test = self.extract_features(train=False, shuffle=False)
-        zs_test = torch.Tensor(zs_test)
-        ys_test = torch.Tensor(ys_test)
-        pred_ys_test = []
-        train_data, _ = load_data(self.dataset, self.data_dir, train_batch_size, train=True, normalize=True, shuffle=False)
-        ys_train = torch.Tensor(train_data.dataset.targets)
-        for b in range(int(len(ys_test) / test_batch_size)):
-            zs_test_b = zs_test[(b)*test_batch_size:(b+1)*test_batch_size]
-            zs_test_b = zs_test_b.unsqueeze(1).repeat(1, train_batch_size, 1)
-            densities = []
-            zs_test_b = zs_test_b.cuda().to(self.device)
-            for i, (train_images, train_labels) in enumerate(train_data):
-                train_images = train_images.cuda().to(self.device)
-                log_prior = self.ebm.log_prior(zs_test_b) # test_size * train_size
-                ll = self.ebm.log_factor_expand(train_images, zs_test_b, test_batch_size)
-                log_joint = (ll + log_prior).cpu().detach()
-                densities.append(log_joint)
-            indices = torch.argmax(torch.cat(densities, 1), dim=-1) # test_size
-            pred_ys_test.append(ys_train[indices].unsqueeze(-1))
-            print('%d completed..' % (b+1))
-        pred_ys_test = torch.cat(pred_ys_test, 0)
-        return ys_test, pred_ys_test
-    
-    def nn_latents(self, image_samples):
-        """
-        given a set of image samples, compute their nearest neighbours in the training set.
-        """
-        print('compute nearest neighbours..')
-        train_data, _ = load_data_as_array(self.dataset, self.data_dir, train=True, normalize=False, flatten=False, shuffle=False)
-        zs_train_data, _ = self.extract_features(train=True, shuffle=False)
-        
-        num_walks, num_images, num_channels, H, W = image_samples.shape
-        neural_ss1, neural_ss2 = self.ebm.forward(image_samples.view(num_walks * num_images, num_channels, H, W))
-        zs_samples, _ = nats_to_params(self.ebm.prior_nat1+neural_ss1, self.ebm.prior_nat2+neural_ss2)
-        zs_train_data = torch.Tensor(zs_train_data).unsqueeze(0).repeat(num_walks*num_images, 1, 1)
-        
-        zs_samples = zs_samples.unsqueeze(1).repeat(1, zs_train_data.shape[1], 1).cpu().detach()
-        assert zs_train_data.shape == zs_samples.shape, "unexpected shape."
-        nns = compute_nns(zs_train_data, zs_samples, train_data, dataset=self.dataset)
-        return nns.view(num_walks, num_images, nns.shape[1], nns.shape[-2], nns.shape[-1])
-
-    
-    def plot_samples(self, batch_size=100, fs=0.7, save=False):
-        print('plotting the samples..')
-        _, fake_images = self.gen.forward(batch_size)
-        fake_images = (fake_images * 0.5 + 0.5).cpu().detach().squeeze().data.numpy()
-#         fake_images = fake_images.cpu().detach().squeeze().data.numpy()
-        gs = gridspec.GridSpec(int(batch_size/10), 10)
-        gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
-        fig = plt.figure(figsize=(fs*10, fs*int(batch_size/10)))
-        for i in range(batch_size):
-            ax = fig.add_subplot(gs[int(i/10), i%10])
-            try:
-                ax.imshow(fake_images[i], cmap='gray', vmin=0, vmax=1.0)
-            except:
-                ax.imshow(np.transpose(fake_images[i], (1,2,0)), vmin=0, vmax=1.0)
-            ax.set_axis_off()
-            ax.set_xticks([])
-            ax.set_yticks([])
-        if save:
-            plt.savefig('samples/gan_fake_samples_%s.png' % self.dataset, dpi=300)
-            plt.close()
-            
-    def extract_energy(self, dataset, train):
-        test_data, img_dims = load_data(dataset, self.data_dir, 1000, train=train, normalize=True)
-        Es = []
-        for (images, _) in test_data:
-            images = images.cuda().to(self.device)
-            images = images + self.data_noise_std * torch.randn_like(images)
-            energy = self.ebm.energy(images)
-            Es.append(energy.cpu().detach().numpy())
-        Es =  np.concatenate(Es, 0)
-        return Es
-
-    def extract_pm(self, dataset, train):
-        test_data, img_dims = load_data(dataset, self.data_dir, 1000, train=train, normalize=True)
-        Gs = []
-        for (images, _) in test_data:
-            images = images.cuda().to(self.device)
-            images = images + self.data_noise_std * torch.randn_like(images)
-            images.requires_grad = True
-            grads = torch.autograd.grad(outputs=self.ebm.energy(images).sum(), inputs=images)[0]
-            gradient_mass = torch.norm(torch.flatten(grads, start_dim=1), dim=1).squeeze()
-            assert gradient_mass.shape == (len(images), ), "unexpected shape."
-            Gs.append(gradient_mass.cpu().detach().numpy())
-        Gs =  np.concatenate(Gs, 0)
-        return Gs
-    
-    def extract_features(self, train, shuffle=False):
-        test_data, img_dims = load_data(self.dataset, self.data_dir, 1000, train=train, normalize=True, shuffle=shuffle)
-        zs = []
-        ys = []
-        for (images, labels) in test_data:
-            images = images.cuda().to(self.device)
-            if self.gan_type == 'dcgan':    
-                latent = self.disc.forward(images)
-                zs.append(latent.cpu().detach().numpy())
-            elif self.gan_type == 'bigan':
-                latent = self.enc(images)
-                zs.append(latent.squeeze().cpu().detach().numpy())
-            else:
-                raise NotIplementError
-            
-            ys.append(labels)
-        zs = np.concatenate(zs, 0)
-        ys = np.concatenate(ys, 0)
-        return zs, ys
-
-    def extract_features_fewshots(self, data):
-        zs = []
-        ys = []
-        images = data['images']
-        images = (images - 0.5) / 0.5
-        labels = data['labels']
-        images = images.cuda().to(self.device)
-        if self.gan_type == 'dcgan': 
-            latent = self.disc.forward(images)
-            zs.append(latent.cpu().detach().numpy())
-        elif self.gan_type == 'bigan':
-            latent = self.enc(images)
-            zs.append(latent.squeeze().cpu().detach().numpy())
-        else:
-            raise NotIplementError        
-        ys.append(labels)
-        zs = np.concatenate(zs, 0)
-        ys = np.concatenate(ys, 0)
-        return zs, ys
 
             
 class Evaluator_EBM():
