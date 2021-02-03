@@ -32,12 +32,13 @@ class Discriminator_BIGAN(nn.Module):
         else:
             raise NotImplementError # will implement wresnet-28-10 later
         self.sigmoid = nn.Sigmoid()
-    
+        self.flatten = nn.Flatten()   
     def binary_pred(self, x, z):
-        features = self.enc_ent2(self.flatten(self.x_enc_net1(x)))
-        
+        features = self.x_enc_net2(self.flatten(self.x_enc_net1(x)))
+#        print('f shape=', features.shape)
+#        print('z shape=', z.shape)
 #         assert features.shape == z.shape, 'feature shape=%s, z shape=%s' % (features.shape, z.shape)
-        xz = torch.cat((features, z), dim=1)
+        xz = torch.cat((features, z.squeeze()), dim=1)
         return self.sigmoid(self.xz_enc_net(xz)).squeeze()
     
 class Encoder_BIGAN(nn.Module):
@@ -52,7 +53,7 @@ class Encoder_BIGAN(nn.Module):
         else:
             raise NotImplementError
         self.reparameterized = reparameterized
-        
+        self.latent_dim = kwargs['latent_dim']
     def forward(self, images):
         mu, log_sigma = self.enc_net(images)
         
