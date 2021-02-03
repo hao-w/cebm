@@ -54,6 +54,7 @@ class Encoder_BIGAN(nn.Module):
             raise NotImplementError
         self.reparameterized = reparameterized
         self.latent_dim = kwargs['latent_dim']
+        
     def forward(self, images):
         mu, log_sigma = self.enc_net(images)
         
@@ -65,10 +66,9 @@ class Encoder_BIGAN(nn.Module):
         assert latents.shape == (images.shape[0], self.latent_dim), 'latent shape =%s' % latents.shape
         return latents
 
-#     def mode(self, images):
-#         if self.arch == 'simplenet':
-#             output = self.enc_net(images)
-#         return mu
+    def mode(self, images):
+        mu, _ = self.enc_net(images)
+        return mu.detach()
     
 class Generator(nn.Module):
     """

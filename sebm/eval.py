@@ -71,7 +71,7 @@ class Evaluator_GAN():
                 latent = self.disc.forward(images)
                 zs.append(latent.cpu().detach().numpy())
             elif self.gan_type == 'bigan' or self.gan_type == 'bigan_gmm':
-                latent = self.enc(images)
+                latent = self.enc.mode(images)
                 zs.append(latent.squeeze().cpu().detach().numpy())
             else:
                 raise NotIplementError
@@ -79,6 +79,7 @@ class Evaluator_GAN():
             ys.append(labels)
         zs = np.concatenate(zs, 0)
         ys = np.concatenate(ys, 0)
+        assert zs.shape[-1] == 128
         return zs, ys
 
     def extract_features_fewshots(self, data):
@@ -92,13 +93,14 @@ class Evaluator_GAN():
             latent = self.disc.forward(images)
             zs.append(latent.cpu().detach().numpy())
         elif self.gan_type == 'bigan' or self.gan_type == 'bigan_gmm':
-            latent = self.enc(images)
+            latent = self.enc.mode(images)
             zs.append(latent.squeeze().cpu().detach().numpy())
         else:
             raise NotIplementError        
         ys.append(labels)
         zs = np.concatenate(zs, 0)
         ys = np.concatenate(ys, 0)
+        assert zs.shape[-1] == 128
         return zs, ys
 
 def plot_likelihood_cond_samples(images_ebm, fs=2, save_name=None):    
