@@ -33,9 +33,9 @@ class Train_procedure():
             time_start = time.time()
             metrics = {'lossD': 0.0, 'lossG': 0.0}
             for b, (images, _) in enumerate(self.train_data): 
-                
+                total = 150
                 # zero mean, std = 0.1 * (self.args.num_epochs - epoch) / self.args.num_epochs
-                noise_std = 0.1 * (self.num_epochs - epoch) / float(self.num_epochs)
+                noise_std = 0.1 * (total - epoch) / float(total)
                 noise1 = torch.randn_like(images, device=self.device, requires_grad=False) * noise_std
                 noise2 = torch.randn_like(images, device=self.device, requires_grad=False) * noise_std
                 
