@@ -24,7 +24,7 @@ class Discriminator_BIGAN(nn.Module):
                                          last_act=True)
             
             self.xz_enc_net = _mlp_block(input_dim=int(2*latent_dim), 
-                                         hidden_dim=hidden_dim, 
+                                         hidden_dim=[latent_dim], 
                                          latent_dim=1, 
                                          activation=kwargs['activation'], 
                                          leak=kwargs['leak'],
