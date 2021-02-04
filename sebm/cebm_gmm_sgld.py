@@ -57,7 +57,7 @@ class Train_procedure():
         energy_data = self.ebm.energy(images_data)
         images_ebm = self.sgld_sampler.sample(ebm, batch_size, self.sgld_num_steps, pcd=True)
         energy_ebm = ebm.energy(images_ebm)
-        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * ((energy_data**2).mean() +(energy_ebm**2).mean())
+        trace['loss'] = (energy_data - energy_ebm).mean() + self.reg_alpha * (energy_data**2).mean()
         trace['energy_data'] = energy_data.detach().mean()
         trace['energy_ebm'] = energy_ebm.detach().mean()
         return trace
@@ -75,9 +75,7 @@ class Train_procedure():
         checkpoint_dict  = {
             'model_state_dict': self.ebm.state_dict(),
             'prior_mu' : self.ebm.prior_mu,
-            'prior_log_sigma' : self.ebm.prior_log_sigma
-            #'replay_buffer' : self.sgld_sampler.buffer
-            }
+            'prior_log_sigma' : self.ebm.prior_log_sigma}
         torch.save(checkpoint_dict, "weights/cp-%s" % self.save_version)
 
 if __name__ == "__main__":
@@ -95,14 +93,14 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', default=None, type=str)
 #     parser.add_argument('--sample_size', default=1, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--data_noise_std', default=1e-2, type=float)
+    parser.add_argument('--data_noise_std', default=3e-2, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, action='store_true')
-    parser.add_argument('--num_clusters', default=10, type=int)
+    parser.add_argument('--num_clusters', default=50, type=int)
     ## arch config
-    parser.add_argument('--arch', default='simplenet', choices=['simplenet', 'simplenet2'])
+    parser.add_argument('--arch', default='simplenet2', choices=['simplenet', 'simplenet2'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
     parser.add_argument('--channels', default="[64, 64, 32, 32]")
@@ -110,22 +108,22 @@ if __name__ == "__main__":
     parser.add_argument('--strides', default="[1, 2, 2, 2]")
     parser.add_argument('--paddings', default="[1, 1, 1, 1]")
     parser.add_argument('--hidden_dim', default="[128]")
-    parser.add_argument('--latent_dim', default=10, type=int)
+    parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='Swish')
     parser.add_argument('--leak', default=0.01, type=float)
     ## training config
-    parser.add_argument('--num_epochs', default=200, type=int)
+    parser.add_argument('--num_epochs', default=100, type=int)
     ## sgld sampler config
-    parser.add_argument('--buffer_size', default=10000, type=int)
+    parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--buffer_percent', default=0.95, type=float)
     parser.add_argument('--buffer_init', default=False, action='store_true')
     parser.add_argument('--buffer_dup_allowed', default=False, action='store_true')
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
-    parser.add_argument('--sgld_lr', default=1.0, type=float)
-    parser.add_argument('--sgld_num_steps', default=50, type=int)
+    parser.add_argument('--sgld_lr', default=2.0, type=float)
+    parser.add_argument('--sgld_num_steps', default=60, type=int)
     parser.add_argument('--grad_clipping', default=False, action='store_true')
     ## regularization config
-    parser.add_argument('--regularize_factor', default=1e-3, type=float)
+    parser.add_argument('--regularize_factor', default=1e-1, type=float)
 #     parser.add_argument('--heldout_class', default=-1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1])
 
     args = parser.parse_args()
@@ -135,6 +133,7 @@ if __name__ == "__main__":
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
     train_data, img_dims = load_data(args.dataset, args.data_dir, args.batch_size, train=True, normalize=True)
+
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'simplenet' or args.arch == 'simplenet2':
         ebm = CEBM_GMM_2ss(K=args.num_clusters,
