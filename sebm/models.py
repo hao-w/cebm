@@ -17,14 +17,14 @@ class Discriminator_BIGAN(nn.Module):
             self.x_enc_net1 = SimpleNet5(**kwargs)
 
             self.x_enc_net2 = _mlp_block(input_dim=cnn_output_dim, 
-                                         hidden_dim=[], 
+                                         hidden_dim=hidden_dim, 
                                          latent_dim=latent_dim, 
                                          activation=kwargs['activation'], 
                                          leak=kwargs['leak'],
                                          last_act=True)
             
             self.xz_enc_net = _mlp_block(input_dim=int(2*latent_dim), 
-                                         hidden_dim=hidden_dim, 
+                                         hidden_dim=[latent_dim], 
                                          latent_dim=1, 
                                          activation=kwargs['activation'], 
                                          leak=kwargs['leak'],
