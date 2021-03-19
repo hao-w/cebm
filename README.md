@@ -1,3 +1,3 @@
 # cebm
 
-#### Project Repository: Strutured Energy Based Models (sebm).
+#### Project Repository: Conjugate Energy Based Models.
