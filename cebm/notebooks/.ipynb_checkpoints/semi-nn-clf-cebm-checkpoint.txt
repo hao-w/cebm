@@ -1,0 +1,4 @@
+data=mnist, num_shots=1, mean=0.0004, std=0.0000
+data=mnist, num_shots=10, mean=0.0094, std=0.0000
+data=mnist, num_shots=100, mean=0.0957, std=0.0000
+data=mnist, num_shots=-1, mean=0.9865, std=0.0000

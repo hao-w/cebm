@@ -1,0 +1,91 @@
+num_shots=1, mean=0.6253, std=0.0510
+num_shots=10, mean=0.8912, std=0.0129
+num_shots=100, mean=0.9612, std=0.0023
+num_shots=-1, mean=0.9837, std=0.0000
+data=mnist, num_shots=1, mean=0.6253, std=0.0510
+data=mnist, num_shots=10, mean=0.8912, std=0.0129
+data=mnist, num_shots=100, mean=0.9612, std=0.0023
+data=mnist, num_shots=-1, mean=0.9837, std=0.0000
+data=fashionmnist, num_shots=1, mean=0.5192, std=0.0366
+data=fashionmnist, num_shots=10, mean=0.7049, std=0.0213
+data=fashionmnist, num_shots=100, mean=0.8005, std=0.0035
+data=fashionmnist, num_shots=-1, mean=0.8501, std=0.0000
+data=cifar10, num_shots=1, mean=0.1656, std=0.0126
+data=cifar10, num_shots=10, mean=0.2913, std=0.0155
+data=cifar10, num_shots=100, mean=0.4082, std=0.0043
+data=cifar10, num_shots=-1, mean=0.4987, std=0.0000
+
+data=svhn, num_shots=1, mean=0.1005, std=0.0109
+data=svhn, num_shots=10, mean=0.1594, std=0.0120
+data=svhn, num_shots=100, mean=0.3633, std=0.0072
+data=svhn, num_shots=-1, mean=0.5630, std=0.0000
+
+data=svhn, num_shots=1, mean=0.1005, std=0.0109
+data=svhn, num_shots=10, mean=0.1594, std=0.0120
+data=svhn, num_shots=100, mean=0.3633, std=0.0072
+data=svhn, num_shots=-1, mean=0.5769, std=0.0000
+
+data=cifar10, num_shots=1, mean=0.1473, std=0.0142
+data=cifar10, num_shots=10, mean=0.2687, std=0.0179
+data=cifar10, num_shots=100, mean=0.4062, std=0.0071
+data=cifar10, num_shots=-1, mean=0.5003, std=0.0000
+
+data=cifar10, num_shots=1, mean=0.1625, std=0.0117
+data=cifar10, num_shots=10, mean=0.2877, std=0.0139
+data=cifar10, num_shots=100, mean=0.4220, std=0.0054
+data=cifar10, num_shots=-1, mean=0.5136, std=0.0000
+
+data=cifar10, num_shots=1, mean=0.1625, std=0.0117
+data=cifar10, num_shots=10, mean=0.2877, std=0.0139
+data=cifar10, num_shots=100, mean=0.4220, std=0.0054
+data=cifar10, num_shots=-1, mean=0.5136, std=0.0000
+
+data=cifar10, num_shots=1, mean=0.1473, std=0.0142
+data=cifar10, num_shots=10, mean=0.2687, std=0.0179
+data=cifar10, num_shots=100, mean=0.4062, std=0.0071
+data=cifar10, num_shots=-1, mean=0.5003, std=0.0000
+data=svhn, num_shots=1, mean=0.1064, std=0.0131
+data=svhn, num_shots=10, mean=0.1709, std=0.0094
+data=svhn, num_shots=100, mean=0.3927, std=0.0111
+data=svhn, num_shots=-1, mean=0.6062, std=0.0000
+data=mnist, num_shots=1, mean=0.6201, std=0.0588
+data=mnist, num_shots=10, mean=0.9096, std=0.0126
+data=mnist, num_shots=100, mean=0.9611, std=0.0015
+data=mnist, num_shots=-1, mean=0.9786, std=0.0000
+data=cifar10, num_shots=1, mean=0.1647, std=0.0139
+data=cifar10, num_shots=10, mean=0.2994, std=0.0118
+data=cifar10, num_shots=100, mean=0.4230, std=0.0055
+data=cifar10, num_shots=-1, mean=0.5176, std=0.0000
+data=fashionmnist, num_shots=1, mean=0.4863, std=0.0495
+data=fashionmnist, num_shots=10, mean=0.6974, std=0.0184
+data=fashionmnist, num_shots=100, mean=0.7939, std=0.0033
+data=fashionmnist, num_shots=-1, mean=0.8414, std=0.0000
+data=svhn, num_shots=1, mean=0.0987, std=0.0078
+data=svhn, num_shots=10, mean=0.1695, std=0.0102
+data=svhn, num_shots=100, mean=0.3786, std=0.0141
+data=svhn, num_shots=-1, mean=0.5784, std=0.0000
+data=cifar10, num_shots=1, mean=0.1605, std=0.0159
+data=cifar10, num_shots=10, mean=0.2859, std=0.0128
+data=cifar10, num_shots=100, mean=0.4188, std=0.0066
+data=cifar10, num_shots=-1, mean=0.5169, std=0.0000
+data=svhn, num_shots=1, mean=0.1064, std=0.0131
+data=svhn, num_shots=10, mean=0.1709, std=0.0094
+data=svhn, num_shots=100, mean=0.3927, std=0.0111
+data=svhn, num_shots=-1, mean=0.5954, std=0.0000
+
+data=mnist, num_shots=1, mean=0.5521, std=0.0575
+data=mnist, num_shots=10, mean=0.8931, std=0.0128
+data=mnist, num_shots=100, mean=0.9592, std=0.0013
+data=mnist, num_shots=-1, mean=0.9771, std=0.0000
+data=mnist, num_shots=1, mean=0.6253, std=0.0510
+data=mnist, num_shots=10, mean=0.8912, std=0.0129
+data=mnist, num_shots=100, mean=0.9612, std=0.0023
+data=mnist, num_shots=-1, mean=0.9837, std=0.0000
+data=fashionmnist, num_shots=1, mean=0.5192, std=0.0366
+data=fashionmnist, num_shots=10, mean=0.7049, std=0.0213
+data=fashionmnist, num_shots=100, mean=0.8005, std=0.0035
+data=fashionmnist, num_shots=-1, mean=0.8501, std=0.0000
+data=svhn, num_shots=1, mean=0.1005, std=0.0109
+data=svhn, num_shots=10, mean=0.1594, std=0.0120
+data=svhn, num_shots=100, mean=0.3633, std=0.0072
+data=svhn, num_shots=-1, mean=0.5630, std=0.0000

@@ -1,0 +1,88 @@
+Fewshots (num_shots := examples per class)
+
+            MNIST
+num_shots   1     10    100    full
+===================================            
+vae         42    78    89     95
+igebm       63    89    95     97      
+cebm        67    89    95     97
+cebm_gmm    67    91    97     98
+
+            FASHIONMNIST
+num_shots   1     10    100    full
+===================================                        
+vae         41    63    72     81 
+igebm       50    70    79     83
+cebm        52    70    77     83
+cebm_gmm    52    71    80     85
+
+            CIFAR10
+num_shots   1     10    100    full
+===================================                        
+vae         16    22    31     38
+igebm       16    26    33     42
+cebm        19    30    42     52
+cebm_gmm    16    29    42     51        
+
+            SVHN
+num_shots   1     10    100    full
+===================================                        
+vae         13    13    16     36
+igebm       10    16    35     49
+cebm        12    25    48     70
+cebm_gmm                     
+####################################################
+####################################################
+####################################################
+Pretrain-model with semi-supervised classifier
+
+            MNIST
+num_shots   1     10    100    full
+===================================            
+vae         11    86     94     98 
+igebm       8     72     90     98
+cebm        30    95     95     98 
+cebm_gmm    11    89     96     98
+
+            FASHIONMNIST
+num_shots   1     10    100    full
+===================================            
+vae         16    67     78      86
+igebm       27    66     71      86
+cebm        30    69     80      88 
+cebm_gmm    22    68     80      88
+
+            CIFAR10
+num_shots   1     10    100    full
+===================================            
+vae                      
+igebm                   
+cebm                     
+cebm_gmm          
+
+            SVHN
+num_shots   1     10    100    full
+===================================            
+vae                      
+igebm                   
+cebm                     
+cebm_gmm                  
+
+####################################################
+OOD-AUROC
+
+         train on fashionmnist
+         log_p(x)                               gradient
+         mnist    emnist-digits  constant   ||  mnist  emnist-digits   constant
+vae      50        39              9        ||  61         57            1
+igebm    35        36              90       ||  78         82            96
+cebm     37        34              90       ||  82         89            98               
+cebm_gmm 56        56              92           56         80            95
+ 
+         train on cifar10
+         log_p(x)                             gradient
+         svhn    texture   constant     ||    svhn   texture   constant
+vae      42        41         58        ||     38       37         51
+igebm    45        64         31        ||     33       62         17
+cebm     47        66         32        ||     31       54         17
+cebm_gmm 55        62         30               40       62         23

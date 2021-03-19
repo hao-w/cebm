@@ -1,0 +1,152 @@
+##################### MNIST ###########################
+model=cebm, data=mnist, accuracy=0.5768, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.9449, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.9569, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=cebm, data=mnist, accuracy=0.3316, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.6155, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.6699, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=vae, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=vae, data=mnist, accuracy=0.5118, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.8931, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=mnist, accuracy=0.9414, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=1　
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=igebm, data=mnist, accuracy=0.5067, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.8769, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.9384, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+
+##################### CIFAR10 ###########################
+model=cebm, data=cifar10, accuracy=0.1384, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.105, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1501, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=vae, data=cifar10, accuracy=0.1625, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.2159, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.2898, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=100, n_neighbors=1
+
+
+
+
+
+
+##################### RAW ##############################
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=vae, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=vae, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, gamma=20, max_iter=50, num_shots=100, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=vae, data=mnist, accuracy=0.0981, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.098, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.0994, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=vae, data=mnist, accuracy=0.1088, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.0998, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.1118, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.0993, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.111, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1006, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1001, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1054, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1011, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1058, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1002, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1063, algo=lp, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=vae, data=mnist, accuracy=0.0981, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.0994, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=mnist, accuracy=0.1088, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.0998, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.1118, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=vae, data=cifar10, accuracy=0.1006, algo=ls, seed=1, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.2279, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1889, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.2052, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=10, max_iter=30, num_shots=100, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.5768, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.9449, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.0982, algo=lp, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=lp, seed=1, kernel=rbf, gamma=2, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.4843, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.86, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=mnist, accuracy=0.8685, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1813, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=1, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1598, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=10, n_neighbors=1
+model=cebm, data=cifar10, accuracy=0.1604, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=100, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=1, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=10, n_neighbors=1
+model=igebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=5, max_iter=30, num_shots=100, n_neighbors=1
+model=vae, data=mnist, accuracy=0.1095, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.1055, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=1, n_neighbors=7
+model=vae, data=mnist, accuracy=0.8456, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=10, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.7057, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=10, n_neighbors=7
+model=vae, data=mnist, accuracy=0.9416, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=100, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.9764, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=100, n_neighbors=7
+model=vae, data=cifar10, accuracy=0.1005, algo=ls, seed=1, kernel=knn, gamma=5, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.1949, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.1009, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=10, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.1704, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=100, n_neighbors=7
+model=cebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm, data=cifar10, accuracy=0.1, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=10, n_neighbors=7
+model=cebm, data=cifar10, accuracy=0.1007, algo=ls, seed=1, kernel=rbf, gamma=0.2, max_iter=30, num_shots=100, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.9655, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=-1, n_neighbors=7
+model=cebm, data=cifar10, accuracy=0.3926, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=-1, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=1, kernel=rbf, gamma=20, max_iter=30, num_shots=100, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=123, kernel=rbf, gamma=20, max_iter=30, num_shots=1, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=123, kernel=rbf, gamma=20, max_iter=30, num_shots=10, n_neighbors=7
+model=cebm_gmm, data=mnist, accuracy=0.098, algo=ls, seed=123, kernel=rbf, gamma=20, max_iter=30, num_shots=100, n_neighbors=7
+model=cebm, data=mnist, accuracy=0.1029, algo=ls, seed=123, kernel=knn, gamma=20, max_iter=30, num_shots=1, n_neighbors=5
+model=cebm, data=mnist, accuracy=0.3346, algo=ls, seed=123, kernel=knn, gamma=20, max_iter=30, num_shots=10, n_neighbors=5
+model=cebm, data=mnist, accuracy=0.9668, algo=ls, seed=123, kernel=knn, gamma=20, max_iter=30, num_shots=100, n_neighbors=5
