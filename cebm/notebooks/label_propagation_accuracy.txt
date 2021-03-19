@@ -1,2 +1,0 @@
-model=cebm, accuracy=0.4984, algo=lp, seed=1, gamma=10, max_iter=1, num_shots=1, n_neighbors=1
-model=cebm, accuracy=0.4984, algo=lp, seed=1, gamma=10, max_iter=1, num_shots=1, n_neighbors=5
