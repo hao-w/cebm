@@ -106,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', default='../../sebm_data/', type=str)
 #     parser.add_argument('--sample_size', default=1, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--data_noise_std', default=3e-2, type=float)
+    parser.add_argument('--data_noise_std', default=0.0, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=5e-5, type=float)
