@@ -313,10 +313,6 @@ def label_propagation(algo_name, evaluator, num_shots, seed, kernel, gamma, n_ne
     return accu
 
 def similarity_z_space_fewshots(evaluator, train_batch_size, test_data):
-    """
-    For each test data point, compute the L2 norm distance from the training data in latent space,
-    return the confusion matrix
-    """
     zs_train, ys_train = evaluator.extract_features(train=True, shuffle=False)
     zs_test, ys_test = evaluator.extract_features_fewshots(data=test_data)
     zs_train = torch.Tensor(zs_train)
@@ -341,10 +337,6 @@ def similarity_z_space_fewshots(evaluator, train_batch_size, test_data):
     return minimum_distances, min_labels, nns
 
 def similarity_z_space_score(evaluator, dataset_ood, train_batch_size, test_batch_size):
-    """
-    For each test data point, compute the L2 norm distance from the training data in latent space,
-    return the confusion matrix
-    """
     zs_train, ys_train = evaluator.extract_features(evaluator.dataset, train=True, shuffle=False)
     zs_test, ys_test = evaluator.extract_features(evaluator.dataset, train=False, shuffle=False)
     zs_ood, ys_ood = evaluator.extract_features(dataset_ood, train=False, shuffle=False)
@@ -740,7 +732,7 @@ class Evaluator_EBM():
             for i, (train_images, train_labels) in enumerate(train_data):
                 train_images = train_images.cuda().to(self.device)
                 log_prior = self.ebm.log_prior(zs_test_b) # test_size * train_size
-                ll = self.ebm.log_factor_expand(train_images, zs_test_b, test_batch_size)
+                ll = self.ebm.log_factor_expand(train_images, zs_test_b, expand_dim=test_batch_size)
                 log_joint = (ll + log_prior).cpu().detach()
                 densities.append(log_joint)
             indices = torch.argmax(torch.cat(densities, 1), dim=-1) # test_size
@@ -1269,7 +1261,7 @@ class Evaluator_EBM_GMM():
             for i, (train_images, train_labels) in enumerate(train_data):
                 train_images = train_images.cuda().to(self.device)
                 log_prior = self.ebm.log_prior(zs_test_b) # test_size * train_size
-                ll = self.ebm.log_factor_expand(train_images, zs_test_b, test_batch_size)
+                ll = self.ebm.log_factor_expand(train_images, zs_test_b, expand_dim=test_batch_size)
                 log_joint = (ll + log_prior).cpu().detach()
                 densities.append(log_joint)
             indices = torch.argmax(torch.cat(densities, 1), dim=-1) # test_size
@@ -1474,17 +1466,42 @@ class Evaluator_EBM_GMM():
         labeled_examples['label'] = labels
         return labeled_examples
     
+#     def extract_features(self, train, shuffle=False):
+#         test_data, img_dims = load_data(self.dataset, self.data_dir, 1000, train=train, normalize=True, shuffle=shuffle)
+#         zs = []
+#         ys = []
+#         for (images, labels) in test_data:
+#             images = images.cuda().to(self.device)
+# #             images = images + self.data_noise_std * torch.randn_like(images)
+#             neural_ss1, neural_ss2 = self.ebm.forward(images)
+#             pred_y = self.ebm.posterior_y(images)
+#             prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
+#             mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+#             pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
+#             mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
+# #             mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
+# #             mean = mean_1tk.mean(1)
+#             zs.append(mean.cpu().detach().numpy())
+#             ys.append(labels)
+#         zs = np.concatenate(zs, 0)
+#         ys = np.concatenate(ys, 0)
+#         return zs, ys
+    
     def extract_features(self, train, shuffle=False):
         test_data, img_dims = load_data(self.dataset, self.data_dir, 1000, train=train, normalize=True, shuffle=shuffle)
         zs = []
         ys = []
         for (images, labels) in test_data:
             images = images.cuda().to(self.device)
-#             images = images + self.data_noise_std * torch.randn_like(images)
             neural_ss1, neural_ss2 = self.ebm.forward(images)
+            B = images.shape[0]
             pred_y = self.ebm.posterior_y(images)
+            K = pred_y.shape[-1]
+            neural_ss1 = neural_ss1.view(B, K,-1)
+            neural_ss2 = neural_ss2.view(B, K,-1)
             prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
-            mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+            mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1, 
+                                         prior_nat2.unsqueeze(0)+neural_ss2)
             pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
             mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
 #             mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
@@ -1495,22 +1512,45 @@ class Evaluator_EBM_GMM():
         ys = np.concatenate(ys, 0)
         return zs, ys
     
+#     def extract_features_fewshots(self, data):
+#         zs = []
+#         ys = []
+#         images = data['images']
+#         images = (images - 0.5) / 0.5
+#         labels = data['labels']
+#         images = images.cuda().to(self.device)
+# #         images = images + self.data_noise_std * torch.randn_like(images)
+#         neural_ss1, neural_ss2 = self.ebm.forward(images)
+#         pred_y = self.ebm.posterior_y(images)
+#         prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
+#         mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1, 
+#                                      prior_nat2.unsqueeze(0)+neural_ss2)
+#         pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
+#         mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
+#         zs.append(mean.cpu().detach().numpy())
+#         ys.append(labels)
+#         zs = np.concatenate(zs, 0)
+#         ys = np.concatenate(ys, 0)
+#         return zs, ys
+    
     def extract_features_fewshots(self, data):
         zs = []
         ys = []
         images = data['images']
         images = (images - 0.5) / 0.5
         labels = data['labels']
-        images = images.cuda().to(self.device)
-#         images = images + self.data_noise_std * torch.randn_like(images)
+        images = images.to(self.device)
         neural_ss1, neural_ss2 = self.ebm.forward(images)
+        B = images.shape[0]
         pred_y = self.ebm.posterior_y(images)
+        K = pred_y.shape[-1]
+        neural_ss1 = neural_ss1.view(B, K,-1)
+        neural_ss2 = neural_ss2.view(B, K,-1)
         prior_nat1, prior_nat2 = params_to_nats(self.ebm.prior_mu, self.ebm.prior_log_sigma.exp())
-        mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+        mean_1tk, _ = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1, 
+                                     prior_nat2.unsqueeze(0)+neural_ss2)
         pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
         mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
-#         mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
-#         mean = mean_1tk.mean(1)
         zs.append(mean.cpu().detach().numpy())
         ys.append(labels)
         zs = np.concatenate(zs, 0)

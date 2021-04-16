@@ -7,8 +7,6 @@ from PIL import Image
 import numpy as np
 
 class Constant(VisionDataset):
-    
-
     def __init__(self, color_mode, root, loader=default_loader, transform=None):
         super(Constant, self).__init__(root, transform=transform)        
 
@@ -231,7 +229,6 @@ def load_data(dataset, data_dir, batch_size, train=True, normalize=True, resize=
     """
     load dataset
     """
-#     print('Note: downsampling function is %s' % transforms.Resize(1))
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
     if dataset == 'mnist':

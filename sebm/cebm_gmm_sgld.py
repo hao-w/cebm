@@ -2,7 +2,7 @@ import torch
 from torch.distributions.normal import Normal
 from torch.distributions.uniform import Uniform
 import time
-from sebm.models import CEBM_GMM_2ss
+from sebm.models import CEBM_GMM_Kss
 """
 training procedure for conjugate EBM with latent variable z, using SGLD for sampling from model distribution.
 """
@@ -90,24 +90,23 @@ if __name__ == "__main__":
     parser.add_argument('--device', default=0, type=int)
     ## data config
     parser.add_argument('--dataset', required=True, choices=['mnist', 'cifar10', 'cifar100', 'svhn', 'imagenet', 'celeba', 'flowers102', 'fashionmnist'])
-    parser.add_argument('--data_dir', default=None, type=str)
-#     parser.add_argument('--sample_size', default=1, type=int)
+    parser.add_argument('--data_dir', default='../../sebm_data/', type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--data_noise_std', default=3e-2, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--optimize_priors', default=False, action='store_true')
-    parser.add_argument('--num_clusters', default=50, type=int)
+    parser.add_argument('--num_clusters', default=10, type=int)
     ## arch config
     parser.add_argument('--arch', default='simplenet2', choices=['simplenet', 'simplenet2'])
     parser.add_argument('--depth', default=28, type=int)
     parser.add_argument('--width', default=10, type=int)
-    parser.add_argument('--channels', default="[64, 64, 32, 32]")
-    parser.add_argument('--kernels', default="[3, 4, 4, 4]")
-    parser.add_argument('--strides', default="[1, 2, 2, 2]")
-    parser.add_argument('--paddings', default="[1, 1, 1, 1]")
-    parser.add_argument('--hidden_dim', default="[128]")
+    parser.add_argument('--channels', default="[64,128,256,512]")
+    parser.add_argument('--kernels', default="[3,4,4,4]")
+    parser.add_argument('--strides', default="[1,2,2,2]")
+    parser.add_argument('--paddings', default="[1,1,1,1]")
+    parser.add_argument('--hidden_dim', default="[4096,2048]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='Swish')
     parser.add_argument('--leak', default=0.01, type=float)
@@ -128,7 +127,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     set_seed(args.seed)
-    device = torch.device('cuda:%d' % torch.cuda.current_device())
+    device = torch.device('cuda:%d' % args.device)
     save_version = 'cebm_gmm_k=%d-d=%s-seed=%d-lr=%s-zd=%d-d_ns=%s-sgld-ns=%s-lr=%s-steps=%s-reg=%s-act=%s-arch=%s' % (args.num_clusters, args.dataset, args.seed, args.lr, args.latent_dim, args.data_noise_std, args.sgld_noise_std, args.sgld_lr, args.sgld_num_steps, args.regularize_factor, args.activation, args.arch)
     print('Experiment with ' + save_version)
     print('Loading dataset=%s...' % args.dataset)
@@ -136,7 +135,7 @@ if __name__ == "__main__":
 
     (input_channels, im_height, im_width) = img_dims  
     if args.arch == 'simplenet' or args.arch == 'simplenet2':
-        ebm = CEBM_GMM_2ss(K=args.num_clusters,
+        ebm = CEBM_GMM_Kss(K=args.num_clusters,
                         arch=args.arch,
                         optimize_priors=args.optimize_priors,
                         device=device,
@@ -154,7 +153,7 @@ if __name__ == "__main__":
     else:
         raise NotImplementError
         
-    ebm = ebm.cuda().to(device)
+    ebm = ebm.to(device)
     optimizer = getattr(torch.optim, args.optimizer)(list(ebm.parameters()), lr=args.lr)
     print('Initialize sgld sampler...')
     sgld_sampler = SGLD_sampler(device=device,

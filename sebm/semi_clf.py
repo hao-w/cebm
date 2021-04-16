@@ -19,7 +19,6 @@ class Train_procedure():
         self.reg_lambda = reg_lambda
         self.device = device
         self.save_version = save_version
-#         self.zero
     def test_score(self, test_data, test_label):
         num_batches = int(len(test_label) / self.batch_size)
         N = 0.0

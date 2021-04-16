@@ -30,14 +30,11 @@ class Discriminator_BIGAN(nn.Module):
                                          leak=kwargs['leak'],
                                          last_act=False)
         else:
-            raise NotImplementError # will implement wresnet-28-10 later
+            raise NotImplementError
         self.sigmoid = nn.Sigmoid()
         self.flatten = nn.Flatten()   
     def binary_pred(self, x, z):
         features = self.x_enc_net2(self.flatten(self.x_enc_net1(x)))
-#        print('f shape=', features.shape)
-#        print('z shape=', z.shape)
-#         assert features.shape == z.shape, 'feature shape=%s, z shape=%s' % (features.shape, z.shape)
         xz = torch.cat((features, z.squeeze()), dim=1)
         return self.sigmoid(self.xz_enc_net(xz)).squeeze()
     
@@ -165,68 +162,6 @@ class EBM(nn.Module):
     def energy(self, x):
         return self.ebm_net(x).squeeze()
 
-class CEBM_1ss(nn.Module):
-    """
-    conjugate EBM with latent variable z,
-    where the ebm encodes each image into one 
-    neural sufficient statistics w.r.t. natural parameter 1.
-    """
-    def __init__(self, arch, optimize_priors, device, **kwargs):
-        super().__init__()
-        if arch == 'simplenet':
-            self.ebm_net = SimpleNet(**kwargs)
-        else:
-            raise NotImplementError # will implement wresnet-28-10 later
-            
-        self.prior_nat1 = torch.zeros(kwargs['latent_dim']).cuda().to(device)
-        self.prior_nat2 = - 0.5 * torch.ones(kwargs['latent_dim']).cuda().to(device) # same prior for each pixel        
-        if optimize_priors:
-            self.prior_nat1 = nn.Parameter(self.prior_nat1)
-            self.prior_nat2 = nn.Parameter(self.prior_nat2)
-            
-    def forward(self, x):
-        return self.ebm_net(x)
-    
-    def energy(self, x):
-        """
-        compute the energy function w.r.t. either data distribution 
-        or model distribution
-        that is defined as
-        logA(\lambda) - logA(t(x) + \lambda)
-        Ex of the size B         
-        """
-        neural_ss1 = self.forward(x)
-        logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
-        logA_posterior = self.log_partition(self.prior_nat1+neural_ss1, self.prior_nat2)
-        assert logA_prior.shape == (neural_ss1.shape[1],), 'unexpected shape.'
-        assert logA_posterior.shape == (neural_ss1.shape[0], neural_ss1.shape[1]), 'unexpected shape.'
-        return logA_prior.sum(0) - logA_posterior.sum(1)   
-    
-    def sample_z_prior(self, sample_size, batch_size):
-        """
-        return samples from prior of size S * B * latent_dim
-        and log_prob of size S * B
-        """
-        prior_mu, prior_sigma = nats_to_params(self.prior_nat1, self.prior_nat2)
-        prior_dist = Normal(prior_mu, prior_sigma)       
-        latents = prior_dist.sample((sample_size, batch_size, ))
-        return latents, prior_dist.log_prob(latents).sum(-1)   
-    
-    def log_partition(self, nat1, nat2):
-        """
-        compute the log partition of a normal distribution
-        """
-        return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
-    
-    def log_factor(self, neural_ss1, latents):
-        """
-        compute the log heuristic factor for the EBM
-        log factor of size  B 
-        """
-        B, latent_dim = neural_ss1.shape
-        assert latents.shape == (B, latent_dim), 'ERROR!'
-        return (neural_ss1 * latents).sum(1)
-    
 class CEBM_2ss(nn.Module):
     """
     conjugate EBM with latent variable z,
@@ -323,26 +258,27 @@ class CEBM_2ss(nn.Module):
         assert latents.shape == (B, latent_dim), 'ERROR!'
         return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
     
-    def log_factor_expand(self, x, latents, expand_dim):
+    def log_factor_posterior(self, x, sample_size):
         """
-        compute the log heuristic factor for the EBM
-        log factor of size  B 
+        sample from the posterior and compute the log factor of it
         """
         neural_ss1, neural_ss2 = self.forward(x)
-        B, latent_dim = neural_ss1.shape
-        neural_ss1 = neural_ss1.repeat(expand_dim , 1, 1)
-        neural_ss2 = neural_ss2.repeat(expand_dim , 1, 1)
-        return (neural_ss1 * latents).sum(2) + (neural_ss2 * (latents**2)).sum(2)
+        posterior_mu, posterior_sigma = nats_to_params(self.prior_nat1+neural_ss1, 
+                                                       self.prior_nat2+neural_ss2)
+        z = Normal(posterior_mu, posterior_sigma).sample((sample_size, ))
+        return (neural_ss1.unsqueeze(0) * z).sum(-1) + (neural_ss2.unsqueeze(0) * (z**2)).sum(-1)
     
     
-    def sample_posterior(self, sample_size, neural_ss1, neural_ss2):
+    def sample_posterior(self, x, sample_size):
         """
         return samples from the conjugate posterior
         """
-        posterior_mu, posterior_sigma = nats_to_params(self.prior_nat1+neural_ss1, self.prior_nat2+neural_ss2)
+        neural_ss1, neural_ss2 = self.forward(x)
+        posterior_mu, posterior_sigma = nats_to_params(self.prior_nat1+neural_ss1, 
+                                                       self.prior_nat2+neural_ss2)
         posterior_dist = Normal(posterior_mu, posterior_sigma) 
-        latents = posterior_dist.sample((sample_size, ))
-        return latents, posterior_dist.log_prob(latents).sum(-1)
+        z = posterior_dist.sample((sample_size, ))
+        return z
     
     def return_posterior(self, x):
         """
@@ -579,3 +515,121 @@ class CEBM_GMM_2ss(nn.Module):
         std = torch.gather(std_1tk, 1, pred_y_expand).squeeze(1)
         return mean, std
 #             mean = (pred_y.unsqueeze(2) * mean_1tk).sum(1)
+
+class CEBM_GMM_Kss(nn.Module):
+    """
+    conjugate EBM with latent variable z of a GMM prior,
+    where the ebm encodes each image into two 
+    neural sufficient statistics tx1 tx2
+    where tx2 = - tx1^2
+    """
+    def __init__(self, K, arch, optimize_priors, device, **kwargs):
+        super().__init__()
+        self.prior_mu = 0.31 * torch.randn((K, kwargs['latent_dim'])).cuda().to(device)
+        self.prior_log_sigma = (5*torch.rand((K, kwargs['latent_dim'])) + 1.0).log().cuda().to(device)
+        if optimize_priors:
+            self.prior_mu = nn.Parameter(self.prior_mu)
+            self.prior_log_sigma = nn.Parameter(self.prior_log_sigma)
+        if arch == 'simplenet2':
+            kwargs['latent_dim'] = kwargs['latent_dim'] * K
+            self.ebm_net = SimpleNet2(**kwargs)
+        else:
+            raise NotImplementError 
+
+        self.arch = arch
+        self.K = K
+        self.log_K = torch.Tensor([K]).log().to(device)
+        
+    def forward(self, x):
+        if self.arch == 'simplenet2' or self.arch == 'wresnet':
+            neural_ss1, neural_ss2 = self.ebm_net(x)
+            return neural_ss1, - neural_ss2**2
+        elif self.arch == 'simplenet':
+            neural_ss1 = self.ebm_net(x)
+            neural_ss2 = - neural_ss1**2
+            return neural_ss1, neural_ss2
+        else:
+            raise NotImplementError
+    
+    def energy(self, x):
+        """
+        compute the energy function w.r.t. either data distribution 
+        or model distribution
+        that is defined as
+        logA(\lambda) - logA(t(x) + \lambda)
+        Ex of the size B 
+        
+        argument: dist = 'data' or 'ebm'
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        B = x.shape[0]
+        neural_ss1 = neural_ss1.view(B,self.K,-1)
+        neural_ss2 = neural_ss2.view(B,self.K,-1)
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        logA_prior = self.log_partition(prior_nat1, prior_nat2) # K * D
+#         logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
+        logA_posterior = self.log_partition(prior_nat1.unsqueeze(0)+neural_ss1, 
+                                            prior_nat2.unsqueeze(0)+neural_ss2) # B * K * D
+        assert logA_prior.shape == (self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        assert logA_posterior.shape == (B, self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        return self.log_K - torch.logsumexp(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)   
+ 
+    def energy_cond(self, x, y):
+        """
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        logA_prior = self.log_partition(prior_nat1, prior_nat2) # K * D
+#         logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
+        logA_posterior = self.log_partition(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1)) # B * K * D
+        assert logA_prior.shape == (self.K, neural_ss1.shape[1]), 'unexpected shape.'
+        assert logA_posterior.shape == (neural_ss1.shape[0], self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        return (logA_posterior.sum(2) - logA_prior.sum(1))[:, y] 
+     
+        
+    def log_partition(self, nat1, nat2):
+        """
+        compute the log partition of a normal distribution
+        """
+        return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
+    
+    def log_factor(self, x, latents):
+        """
+        compute the log heuristic factor for the EBM
+        log factor of size  B 
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        B, latent_dim = neural_ss1.shape
+        assert latents.shape == (B, latent_dim), 'ERROR!'
+        return (neural_ss1 * latents).sum(1) + (neural_ss2 * (latents**2)).sum(1)
+    
+    def posterior_y(self, x):
+        """
+        p(y | x)
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        B = x.shape[0]
+        neural_ss1 = neural_ss1.view(B,self.K,-1)
+        neural_ss2 = neural_ss2.view(B,self.K,-1)
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        logA_prior = self.log_partition(prior_nat1, prior_nat2) # K * D
+#         logA_prior = self.log_partition(self.prior_nat1, self.prior_nat2)
+        logA_posterior = self.log_partition(prior_nat1.unsqueeze(0)+neural_ss1, 
+                                            prior_nat2.unsqueeze(0)+neural_ss2) # B * K * D
+#         assert logA_prior.shape == (self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+#         assert logA_posterior.shape == (B, self.K, self.K, neural_ss1.shape[-1]), 'unexpected shape.'
+        probs = torch.nn.functional.softmax(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)
+        return probs
+    
+    def return_posterior(self, x):
+        """
+        return params of the conjugate posterior
+        """
+        neural_ss1, neural_ss2 = self.forward(x)
+        pred_y = self.posterior_y(x)
+        prior_nat1, prior_nat2 = params_to_nats(self.prior_mu, self.prior_log_sigma.exp())
+        mean_1tk, std_1tk = nats_to_params(prior_nat1.unsqueeze(0)+neural_ss1.unsqueeze(1), prior_nat2.unsqueeze(0)+neural_ss2.unsqueeze(1))
+        pred_y_expand = pred_y.argmax(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, mean_1tk.shape[2])
+        mean = torch.gather(mean_1tk, 1, pred_y_expand).squeeze(1)
+        std = torch.gather(std_1tk, 1, pred_y_expand).squeeze(1)
+        return mean, std
