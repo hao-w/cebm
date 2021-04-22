@@ -1,10 +1,7 @@
+tqdm
+torch
 jupyterlab
 matplotlib
-seaborn
-ipywidgets
-scikit-learn
-tqdm
-umap-learn
-torch
 torchvision
-tensorboard
+scikit-learn
+
