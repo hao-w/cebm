@@ -1,0 +1,10 @@
+jupyterlab
+matplotlib
+seaborn
+ipywidgets
+scikit-learn
+tqdm
+umap-learn
+torch
+torchvision
+tensorboard
