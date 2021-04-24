@@ -76,7 +76,8 @@ def main(args):
                   'device': device,
                   'num_clusters': args.num_clusters}
     models = init_models(args.model_name, device, model_args, network_args)
-    
+    for k, v in models.items():
+        print(v)
     sgld_args = {'im_h': im_h, 
                  'im_w': im_w, 
                  'im_channels': im_channels,

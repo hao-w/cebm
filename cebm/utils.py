@@ -15,87 +15,13 @@ def set_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.benchmark = True
     # torch.backends.cudnn.deterministic = True
-    
-class TensorboardWriter():
-    def __init__(self, log_dir):
-        self.writer = None
-        self.selected_module = ""
-
-        log_dir = str(log_dir)
-
-        # Retrieve vizualization writer.
-        succeeded = False
-        for module in ["torch.utils.tensorboard", "tensorboardX"]:
-            try:
-                self.writer = importlib.import_module(module).SummaryWriter(log_dir, flush_secs=10)
-                succeeded = True
-                break
-            except ImportError:
-                succeeded = False
-            self.selected_module = module
-
-        self.step = 0
-        self.mode = ''
-
-        self.tb_writer_ftns = {
-            'add_scalar', 'add_scalars', 'add_image', 'add_images', 'add_audio',
-            'add_text', 'add_histogram', 'add_pr_curve', 'add_embedding'
-        }
-        self.tag_mode_exceptions = {'add_histogram', 'add_embedding'}
-        self.timer = datetime.now()
-
-    def set_step(self, step, mode='train'):
-        self.mode = mode
-        self.step = step
-        if step == 0:
-            self.timer = datetime.now()
-        else:
-            duration = datetime.now() - self.timer
-            self.add_scalar('steps_per_sec', 1 / duration.total_seconds())
-            self.timer = datetime.now()
-
-    def __getattr__(self, name):
-        """
-        If visualization is configured to use:
-            return add_data() methods of tensorboard with additional information (step, tag) added.
-        Otherwise:
-            return a blank function handle that does nothing
-        """
-        if name in self.tb_writer_ftns:
-            add_data = getattr(self.writer, name, None)
-
-            def wrapper(tag, data, *args, **kwargs):
-                if add_data is not None:
-                    # add mode(train/valid) tag
-                    if name not in self.tag_mode_exceptions:
-                        tag = '{}/{}'.format(tag, self.mode)
-                    add_data(tag, data, self.step, *args, **kwargs)
-            return wrapper
-        else:
-            # default action for returning methods defined in this class, set_step() for instance.
-            try:
-                attr = object.__getattr__(name)
-            except AttributeError:
-                raise AttributeError("type object '{}' has no attribute '{}'".format(self.selected_module, name))
-            return attr
-
-def get_checkpoint(exp_name, resume_checkpoint):
-    if resume_checkpoint == -1:
-        # resume from the last checkpoint
-        exp_foldername = os.path.join('saved/', exp_name)
-        checkpoints = [os.path.join(exp_foldername, f) for f in os.listdir(exp_foldername) if os.path.isfile(os.path.join(exp_foldername, f))]
-        last_checkpoint = checkpoints[0]
-        return int(os.path.split(last_checkpoint)[1].split("e=")[1].split(".")[0])
-    else:
-        # resume from the specified checkpoint only, otherwise throw error
-        return resume_checkpoint
 
 def create_exp_name(args):
     # VAEs
     if args.model_name in ['VAE', 'VAE_GMM']:
         exp_name = '%s_d=%s_z=%s_lr=%s_samples=%s_seed=%d' % \
                     (args.model_name, args.data, args.latent_dim, args.lr, args.sample_size, args.seed)
-        if args.model_name == 'GMM_VAE':
+        if args.model_name == 'VAE_GMM':
             exp_name += '_K=%d' % args.K
     # EBMs 
     elif args.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
@@ -110,9 +36,8 @@ def create_exp_name(args):
             exp_name += '_K=%d' % args.num_clusters
     # BIGANs
     elif args.model_name in ['BIGAN', 'BIGAN_GMM']:
-        exp_name = '%s_d=%s_z=%s_lr=%s_disc_act=%s_gen_act=%s_enc_act=%s_dn=%s_seed=%d' % \
-                    (args.model_name, args.data, args.latent_dim, args.lr, args.disc_activation, 
-                     args.gen_activation, args.enc_activation, args.image_noise_std, args.seed)
+        exp_name = '%s_d=%s_z=%s_lr=%s_dn=%s_seed=%d' % \
+                    (args.model_name, args.data, args.latent_dim, args.lr, args.image_noise_std, args.seed)
         if args.model_name in ['BIGAN_GMM']:
             exp_name += '_K=%d' % args.num_clusters
     elif args.model_name in ['SEMI_CLF']:

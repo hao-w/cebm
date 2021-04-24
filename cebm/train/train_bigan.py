@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import argparse
 from cebm.data import setup_data_loader
-from cebm.model.gan import Generator_GAN, Generator_GAN_GMM, Discriminator_BIGAN, Encoder_BIGAN
+from cebm.model.gan import Generator_BIGAN, Generator_BIGAN_GMM, Discriminator_BIGAN, Encoder_BIGAN
 from cebm.utils import set_seed, create_exp_name
 from cebm.train.trainer import Trainer
 
@@ -56,15 +56,15 @@ class Train_BIGAN(Trainer):
             metric_epoch['D(G(z))'] += pred_fake.detach().mean()
         return {k: (v / (b+1)).item() for k, v in metric_epoch.items()}
 
-def init_models(model_name, device, model_args, disc_network_args, gen_network_args, enc_network_args):
+def init_models(model_name, device, model_args, disc_enc_network_args, gen_network_args):
     if model_name == 'BIGAN':
-        disc = Discriminator_BIGAN(**disc_network_args)   
-        enc = Encoder_BIGAN(**enc_network_args)
-        gen = Generator_GAN(model_args['optimize_prior'], model_args['device'], **gen_network_args)
+        disc = Discriminator_BIGAN(**disc_enc_network_args)   
+        enc = Encoder_BIGAN(**disc_enc_network_args)
+        gen = Generator_BIGAN(**gen_network_args)
     elif model_name == 'BIGAN_GMM':
-        disc = Discriminator_BIGAN(**disc_network_args)   
-        enc = Encoder_BIGAN(**enc_network_args)  
-        gen = Generator_GAN_GMM(model_args['optimize_prior'], model_args['device'], model_args['num_clusters'], **gen_network_args)
+        disc = Discriminator_BIGAN(**disc_enc_network_args)   
+        enc = Encoder_BIGAN(**disc_enc_network_args)  
+        gen = Generator_BIGAN_GMM(model_args['optimize_prior'], model_args['num_clusters'], **gen_network_args)
     return {'disc': disc.to(device), 'enc': enc.to(device), 'gen': gen.to(device)}
 
 def main(args):
@@ -79,51 +79,28 @@ def main(args):
                     'normalize': True}
     train_loader, im_h, im_w, im_channels = setup_data_loader(**dataset_args)
     
-    disc_network_args = {'im_height': im_h, 
-                         'im_width': im_w, 
-                         'input_channels': im_channels, 
-                         'channels': eval(args.disc_channels), 
-                         'kernels': eval(args.disc_kernels), 
-                         'strides': eval(args.disc_strides), 
-                         'paddings': eval(args.disc_paddings),
-                         'activation': args.disc_activation,
-                         'hidden_dim': eval(args.hidden_dim),
-                         'latent_dim': args.latent_dim,
-                         'batchnorm': True,
-                         'dropout': True,
-                         'leak_slope': args.leak_slope,
-                         'dropout_prob': args.dropout_prob}
+    disc_enc_network_args = {'im_height': im_h, 
+                             'im_width': im_w, 
+                             'input_channels': im_channels, 
+                             'channels': eval(args.channels), 
+                             'kernels': eval(args.kernels), 
+                             'strides': eval(args.strides), 
+                             'paddings': eval(args.paddings),
+                             'activation': args.activation,
+                             'hidden_dim': eval(args.hidden_dim),
+                             'latent_dim': args.latent_dim}
     
-    gen_network_args = {'input_height': 1, 
-                        'input_width': 1, 
-                        'input_channels': args.latent_dim, 
+    gen_network_args = {'device': device,
                         'channels': eval(args.gen_channels), 
                         'kernels': eval(args.gen_kernels), 
                         'strides': eval(args.gen_strides), 
                         'paddings': eval(args.gen_paddings),
                         'activation': args.gen_activation,
-                        'batchnorm': True,
-                        'dropout': False}
-     
-    enc_network_args = {'reparameterized': True,
-                        'im_height': im_h, 
-                        'im_width': im_w, 
-                        'input_channels': im_channels, 
-                        'channels': eval(args.enc_channels), 
-                        'kernels': eval(args.enc_kernels), 
-                        'strides': eval(args.enc_strides), 
-                        'paddings': eval(args.enc_paddings),
-                        'activation': args.enc_activation,
-                        'hidden_dim': eval(args.hidden_dim),
-                        'latent_dim': args.latent_dim,
-                        'batchnorm': True,
-                        'dropout': False,
-                        'leak_slope': args.leak_slope}
+                        'latent_dim': args.latent_dim}
     
     model_args = {'optimize_prior': args.optimize_prior,
-                  'device': device,
                   'num_clusters': args.num_clusters}
-    models = init_models(args.model_name, device, model_args, disc_network_args, gen_network_args, enc_network_args)
+    models = init_models(args.model_name, device, model_args, disc_enc_network_args, gen_network_args)
     exp_name = create_exp_name(args)
     print("Experiment: %s" % exp_name)
 
@@ -155,23 +132,18 @@ def parse_args():
     parser.add_argument('--lr', default=2e-4, type=float)
     parser.add_argument('--optimize_prior', default=False, action='store_true')
     ## arch config
-    parser.add_argument('--disc_channels', default="[64,64,32,32]")
-    parser.add_argument('--disc_kernels', default="[3,4,4,4]")
-    parser.add_argument('--disc_strides', default="[1,2,2,2]")
-    parser.add_argument('--disc_paddings', default="[1,1,1,1]")
+    parser.add_argument('--channels', default="[64,64,32,32]")
+    parser.add_argument('--kernels', default="[3,4,4,4]")
+    parser.add_argument('--strides', default="[1,2,2,2]")
+    parser.add_argument('--paddings', default="[1,1,1,1]")
     parser.add_argument('--gen_kernels', default="[4,4,3,4,4]")
     parser.add_argument('--gen_channels', default="[64,64,32,32,1]") 
     parser.add_argument('--gen_strides', default="[1,2,2,2,2]")
-    parser.add_argument('--gen_paddings', default="[1,1,1,1,1]")
-    parser.add_argument('--enc_channels', default="[64,64,32,32]")
-    parser.add_argument('--enc_kernels', default="[3,4,4,4]")
-    parser.add_argument('--enc_strides', default="[1,2,2,2]")
-    parser.add_argument('--enc_paddings', default="[1,1,1,1]")    
+    parser.add_argument('--gen_paddings', default="[1,1,1,1,1]")   
     parser.add_argument('--hidden_dim', default="[128]")
     parser.add_argument('--latent_dim', default=128, type=int)
-    parser.add_argument('--disc_activation', default='LeakyReLU')
+    parser.add_argument('--activation', default='LeakyReLU')
     parser.add_argument('--gen_activation', default='ReLU')
-    parser.add_argument('--enc_activation', default='LeakyReLU')
     parser.add_argument('--leak_slope', default=0.2, type=float)
     parser.add_argument('--dropout_prob', default=0.2, type=float)
     parser.add_argument('--num_clusters', default=20, type=int)

@@ -2,65 +2,40 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 from torch.distributions.one_hot_categorical import OneHotCategorical as cat
-from cebm.net import cnn_mlp_1out, cnn_mlp_2out, dcnn, mlp
+from cebm.net import cnn_block, deconv_block, mlp_block
+from cebm.utils import cnn_output_shape
 
 
-class Discriminator_GAN(nn.Module):
+class Generator_BIGAN(nn.Module):
     """
-    Discriminator in a GAN
+    A generator in BIGAN with a Gaussian prior on noise
     """
-    def __init__(self, **kwargs):
+    def __init__(self, device, channels, kernels, strides, paddings, activation, latent_dim, reparameterized=True, **kwargs):
         super().__init__()
-        #To prevent from re-defining 'hidden_dim' and 'latent_dim' for encoders with scalar output and vector output, we manually merge the latent_dim into hidden_dim for scalar output, and re-define the latent_dim as 1.
-        kwargs['hidden_dim'].append(kwargs['latent_dim'])
-        kwargs['latent_dim'] = 1
-        self.disc_net = nn.Sequential(*(list(cnn_mlp_1out(**kwargs)) + [nn.Sigmoid()]))
-        
-    def latent(self, x):
-        return self.disc_net[:-3](x)
-    
-    def binary_pred(self, x):
-        return self.disc_net(x).squeeze()
-    
-class Generator_GAN(nn.Module):
-    """
-    A generator in GAN with a spherical Gaussian prior
-    """
-    def __init__(self, optimize_prior, device, reparameterized=False, **kwargs):
-        super().__init__()
-        self.gen_net = dcnn(**kwargs)
-        self.gen_net = nn.Sequential(*(list(self.gen_net) + [nn.Tanh()]))
-        self.noise_mean = torch.zeros(kwargs['input_channels']).to(device)
-        self.noise_log_std = torch.zeros(kwargs['input_channels']).to(device)
-        if optimize_prior:
-            self.noise_mean = nn.Parameter(self.noise_mean)
-            self.noise_log_std = nn.Parameter(self.noise_log_std)
+        self.gen_net = deconv_block(1, 1, latent_dim, channels, kernels, strides, paddings, activation, last_act=False, batchnorm=True, dropout=False, **kwargs)
+        self.last_act = nn.Tanh()
         self.reparameterized = reparameterized
+        self.device = device
+        self.latent_dim = latent_dim  
         
-    def forward(self, S):
-        p = Normal(self.noise_mean, self.noise_log_std.exp())
-        z = p.rsample((S,)) if self.reparameterized else p.sample((S,))
-        x = self.gen_net(z.unsqueeze(-1).unsqueeze(-1))
+    def forward(self, batch_size):
+        z = torch.randn((batch_size, self.latent_dim, 1, 1), device=self.device)
+        x = self.last_act(self.gen_net(z))
         return z, x
+    
+class Generator_BIGAN_GMM(Generator_BIGAN):
+    def __init__(self, optimize_prior, num_clusters, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, reparameterized=True, **kwargs):
+        super().__init__(device, im_height, im_width, num_clusters, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, reparameterized=True, **kwargs)
 
-class Generator_GAN_GMM(nn.Module):
-    """
-    A generator in GAN where noise is sampled from a GMM prior
-    """
-    def __init__(self, optimize_prior, device, num_clusters, reparameterized=True, **kwargs):
-        super(self.__class__, self).__init__()
-        self.gen_net = dcnn(**kwargs)
-        self.gen_net = nn.Sequential(*(list(self.gen_net) + [nn.Tanh()]))
-        self.prior_means = 0.31 * torch.randn((num_clusters, kwargs['input_channels']), device=device)
-        self.prior_log_stds = (5*torch.rand((num_clusters, kwargs['input_channels']), device=device) + 1.0).log()
+        self.prior_means = 0.31 * torch.randn((num_clusters, self.latent_dim), device=device)
+        self.prior_log_stds = (5*torch.rand((num_clusters, self.latent_dim), device=device) + 1.0).log()
         if optimize_prior:
             self.prior_means = nn.Parameter(self.prior_means)
             self.prior_log_stds = nn.Parameter(self.prior_log_stds)
-        self.prior_pi = torch.ones(num_clusters, device=device) / num_clusters
-        self.reparameterized = reparameterized
+        self.prior_pi = torch.ones(num_clusters, device=self.device) / num_clusters
         
-    def forward(self, S):
-        y = cat(probs=self.prior_pi).sample((S,)).argmax(-1)
+    def forward(self, batch_size):
+        y = cat(probs=self.prior_pi).sample((batch_size,)).argmax(-1)
         p = Normal(self.prior_means[y], self.prior_log_stds[y].exp())
         z = p.rsample() if self.reparameterized else p.sample()
         x = self.gen_net(z.unsqueeze(-1).unsqueeze(-1))
@@ -68,33 +43,29 @@ class Generator_GAN_GMM(nn.Module):
 
     
 class Discriminator_BIGAN(nn.Module):
-    """
-    Discriminator in BIGAN
-    """
-    def __init__(self, **kwargs):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, **kwargs):
         super().__init__()
-        #To prevent from re-defining 'hidden_dim' and 'latent_dim' for encoders with scalar output and vector output, we manually merge the latent_dim into hidden_dim for scalar output, and re-define the latent_dim as 1.
-        self.disc_xz_net = mlp(input_dim=int(2*kwargs['latent_dim']), 
-                               hidden_dim=[kwargs['latent_dim']], 
-                               latent_dim=1, 
-                               activation=kwargs['activation'], 
-                               last_act=False,
-                               leak_slope=kwargs['leak_slope'])
-        self.disc_xz_net = nn.Sequential(*(list(self.disc_xz_net) + [nn.Sigmoid()]))
-        kwargs['mlp_last_act'] = True
-        self.enc_x_net = cnn_mlp_1out(**kwargs)
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=True, dropout=True, leak_slope=0.2, dropout_prob=0.2, **kwargs)
+        self.flatten = nn.Flatten()
+        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+        cnn_output_dim = out_h * out_w * channels[-1]
+        self.mlp_net = mlp_block(latent_dim+cnn_output_dim, hidden_dim, 1, activation, last_act=False, leak_slope=0.2, **kwargs)
+        self.sigmoid = nn.Sigmoid()
         
     def binary_pred(self, x, z):
-        return self.disc_xz_net(torch.cat((self.enc_x_net(x), z.squeeze()), dim=1)).squeeze()
+        h1 = self.flatten(self.conv_net(x))
+        return self.sigmoid(self.mlp_net(torch.cat((h1, z.squeeze()), dim=-1))).squeeze(-1)
     
-
+    
 class Encoder_BIGAN(nn.Module):
-    """
-    An encoder in BIGAN
-    """
-    def __init__(self, reparameterized, **kwargs):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, reparameterized=True, **kwargs):
         super().__init__()
-        self.enc_cnn, self.mean_net, self.log_std_net = cnn_mlp_2out(**kwargs)
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=True, dropout=False, leak_slope=0.2, **kwargs)
+        self.flatten = nn.Flatten()
+        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+        cnn_output_dim = out_h * out_w * channels[-1]
+        self.mean = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, leak_slope=0.2, **kwargs)
+        self.log_std = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, leak_slope=0.2, **kwargs)
         self.reparameterized = reparameterized
         
     def forward(self, x):
@@ -102,7 +73,7 @@ class Encoder_BIGAN(nn.Module):
         q = Normal(mean, std)
         z = q.rsample() if self.reparameterized else q.sample()
         return z
-
+    
     def latent_params(self, x):
-        h = self.enc_cnn(x)
-        return self.mean_net(h), self.log_std_net(h).exp()
+        h = self.flatten(self.conv_net(x))
+        return self.mean(h), self.log_std(h).exp()

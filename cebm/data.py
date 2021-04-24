@@ -25,7 +25,7 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)
         
-    if data in ['mnist', 'fmnist', 'emnist', 'constant_grayscale']:
+    if data in ['mnist', 'fmnist', 'emnist', 'constant_grayscale', 'omniglot']:
         img_h, img_w, n_channels = 28, 28, 1
         transform = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize((0.5,), (0.5,))])
@@ -76,8 +76,8 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
         dataset = Constant(color_mode='rgb', root=dataset_path, transform=transform)
     elif data == 'constant_grayscale':
         dataset = Constant(color_mode='grayscale', root=dataset_path, transform=transform)
-    elif data == 'imagenet':
-        dataset = datasets.ImageNet(dataset_path, split='train' if train else 'test', download=True, transform=transform)
+    elif data == 'omniglot':
+        dataset = datasets.Omniglot(root=dataset_path, download=True, transform=transform)
     else:
         raise NotImplementError
     

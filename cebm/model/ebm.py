@@ -1,17 +1,23 @@
 import torch
 import torch.nn as nn
-from cebm.net import cnn_mlp_1out, cnn_mlp_2out
+from cebm.net import cnn_block, mlp_block
+from cebm.utils import cnn_output_shape
 
 class CEBM(nn.Module):
     """
     A generic class of CEBM 
     """
-    def __init__(self, **kwargs):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, **kwargs):
         super().__init__()
-        self.cebm_cnn, self.nss1_net, self.nss2_net = cnn_mlp_2out(**kwargs)
-
-    def nss(self, x):
-        h = self.cebm_cnn(x)
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, dropout=False, **kwargs)
+        self.flatten = nn.Flatten()
+        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+        cnn_output_dim = out_h * out_w * channels[-1]
+        self.nss1_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, **kwargs)
+        self.nss2_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, **kwargs)
+        
+    def forward(self, x):
+        h = self.flatten(self.conv_net(x))
         nss1 = self.nss1_net(h) 
         nss2 = self.nss2_net(h)
         return nss1, -nss2**2
@@ -50,7 +56,7 @@ class CEBM(nn.Module):
         """
         compute the log factor log p(x | z) for the CEBM
         """
-        nss1, nss2 = self.nss(x)
+        nss1, nss2 = self.forward(x)
         if expand_dim is not None:
             nss1 = nss1.repeat(expand_dim , 1, 1)
             nss2 = nss2.repeat(expand_dim , 1, 1)
@@ -81,14 +87,14 @@ class CEBM_Gaussian(CEBM):
             self.ib_log_std = nn.Parameter(self.ib_log_std)
     
     def energy(self, x):
-        nss1, nss2 = self.nss(x)
+        nss1, nss2 = self.forward(x)
         ib_nat1, ib_nat2 = self.params_to_nats(self.ib_mean, self.ib_log_std.exp())
         logA_prior = self.log_partition(ib_nat1, ib_nat2)
         logA_posterior = self.log_partition(ib_nat1+nss1, ib_nat2+nss2)
         return logA_prior.sum(0) - logA_posterior.sum(1)   
     
     def latent_params(self, x):
-        nss1, nss2 = self.nss(x)
+        nss1, nss2 = self.forward(x)
         ib_nat1, ib_nat1 = self.params_to_nats(self.ib_mean, self.ib_log_std.exp()) 
         return self.nats_to_params(ib_nat1+nss1, ib_nat2+nss2) 
     
@@ -111,7 +117,7 @@ class CEBM_GMM(CEBM):
         self.log_K = torch.tensor([self.K], device=device).log()
     
     def energy(self, x):
-        nss1, nss2 = self.nss(x)
+        nss1, nss2 = self.forward(x)
         ib_nat1, ib_nat2 = self.params_to_nats(self.ib_means, self.ib_log_stds.exp())
         logA_prior = self.log_partition(ib_nat1, ib_nat2) # K * D
         #FIXME: Currently we only predict the same neural sufficient statistics for all components.
@@ -121,7 +127,7 @@ class CEBM_GMM(CEBM):
         return self.log_K - torch.logsumexp(logA_posterior.sum(2) - logA_prior.sum(1), dim=-1)   
      
     def latent_params(self, x):
-        nss1, nss2 = self.nss(x)
+        nss1, nss2 = self.forward(x)
         ib_nat1, ib_nat2 = self.params_to_nats(self.ib_means, self.ib_log_stds.exp())
         logA_prior = self.log_partition(ib_nat1, ib_nat2) # K * D
         logA_posterior = self.log_partition(ib_nat1.unsqueeze(0)+nss1.unsqueeze(1), ib_nat2.unsqueeze(0)+nss2.unsqueeze(1)) # B * K * D
@@ -131,15 +137,17 @@ class CEBM_GMM(CEBM):
         return torch.gather(means, 1, pred_y_expand).squeeze(1), torch.gather(stds, 1, pred_y_expand).squeeze(1)
 
 class IGEBM(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, **kwargs):
         super().__init__()
-        #To prevent from re-defining 'hidden_dim' and 'latent_dim' for encoders with scalar output and vector output, we manually merge the latent_dim into hidden_dim for scalar output, and re-define the latent_dim as 1.
-        kwargs['hidden_dim'].append(kwargs['latent_dim'])
-        kwargs['latent_dim'] = 1
-        self.igebm_net = cnn_mlp_1out(**kwargs)
-
-    def latent(self, x):
-        return self.igebm_net[:-2](x)
-    
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, dropout=False, **kwargs)
+        self.flatten = nn.Flatten()
+        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+        cnn_output_dim = out_h * out_w * channels[-1]
+        self.latent_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=True, **kwargs)        
+        self.energy_net = nn.Linear(latent_dim, 1)
+        
     def energy(self, x):
-        return self.igebm_net(x).squeeze()
+        return self.energy(self.latent_net(self.flatten(self.conv_net(x))))
+    
+    def latent(self, x):
+        return self.latent_net[:-1](self.flatten(self.conv_net(x)))
