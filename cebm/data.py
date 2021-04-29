@@ -46,8 +46,6 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
         dataset = datasets.EMNIST(dataset_path, split='digits', train=train, transform=transform, download=True)
     elif data == 'cifar10':
         dataset = datasets.CIFAR10(dataset_path, train=train, transform=transform, download=True)
-    elif data == 'cifar100':
-        dataset = datasets.CIFAR100(dataset_path, train=train, transform=transform, download=True)
     elif data == 'svhn':
         if train:
             train_part = datasets.SVHN(dataset_path, split='train', transform=transform, download=True)

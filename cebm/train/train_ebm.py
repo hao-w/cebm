@@ -1,9 +1,8 @@
 import torch
 import argparse
 from cebm.data import setup_data_loader
-from cebm.model.ebm import CEBM_Gaussian, CEBM_GMM, IGEBM
 from cebm.sgld import SGLD_Sampler
-from cebm.utils import set_seed, create_exp_name
+from cebm.utils import set_seed, create_exp_name, init_models
 from cebm.train.trainer import Trainer
 
 class Train_EBM(Trainer):
@@ -23,6 +22,7 @@ class Train_EBM(Trainer):
             self.optimizer.zero_grad() 
             images = (images + self.image_noise_std * torch.randn_like(images)).to(self.device)
             loss, metric_epoch = self.loss(ebm, images, metric_epoch)
+                
             if loss.abs().item() > 1e+8:
                 print('EBM diverging. Terminate training..')
                 exit()
@@ -30,30 +30,22 @@ class Train_EBM(Trainer):
             self.optimizer.step()
         return {k: (v / (b+1)).item() for k, v in metric_epoch.items()}
 
-    def loss(self, ebm, data_images, metric_epoch):   
+    def loss(self, ebm, data_images, metric_epoch, pcd=True, init_samples=None):   
         E_data = ebm.energy(data_images).mean() 
-        E_model = ebm.energy(self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps)).mean() 
+        simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=pcd, init_samples=init_samples)
+        E_model = ebm.energy(simulated_images).mean() 
         E_div = (E_data - E_model) 
-        loss = E_div + self.regularize_coeff * ((E_data**2).mean() + (E_model**2).mean())
+        loss = E_div + self.regularize_coeff * (E_data**2).mean()
         metric_epoch['E_div'] += E_div.detach()
         metric_epoch['E_data'] += E_data.detach()
         metric_epoch['E_model'] += E_model.detach()
         return loss, metric_epoch
-    
-    
-def init_models(model_name, device, model_args, network_args):
-    if model_name == 'CEBM':
-        model = CEBM_Gaussian(model_args['optimize_ib'], model_args['device'], **network_args)    
-    elif model_name == 'CEBM_GMM':
-        model = CEBM_GMM(model_args['optimize_ib'], model_args['device'], model_args['num_clusters'], **network_args)
-    elif model_name == 'IGEBM':
-        model = IGEBM(**network_args)
-    return {'ebm': model.to(device)}
 
 def main(args):
     set_seed(args.seed)
     device = torch.device(args.device)
-    
+    exp_name = create_exp_name(args)
+
     dataset_args = {'data': args.data, 
                     'data_dir': args.data_dir, 
                     'num_shots': -1,
@@ -62,22 +54,24 @@ def main(args):
                     'normalize': True}
     train_loader, im_h, im_w, im_channels = setup_data_loader(**dataset_args)
     
-    network_args = {'im_height': im_h, 
+    network_args = {'device': device,
+                    'im_height': im_h, 
                     'im_width': im_w, 
                     'input_channels': im_channels, 
                     'channels': eval(args.channels), 
                     'kernels': eval(args.kernels), 
                     'strides': eval(args.strides), 
                     'paddings': eval(args.paddings),
-                    'activation': args.activation,
-                    'hidden_dim': eval(args.hidden_dim),
-                    'latent_dim': args.latent_dim}
+                    'hidden_dims': eval(args.hidden_dims),
+                    'latent_dim': args.latent_dim,
+                    'activation': args.activation}
+    
     model_args = {'optimize_ib': args.optimize_ib,
-                  'device': device,
                   'num_clusters': args.num_clusters}
+    
     models = init_models(args.model_name, device, model_args, network_args)
-    for k, v in models.items():
-        print(v)
+
+    print('Start Training..')
     sgld_args = {'im_h': im_h, 
                  'im_w': im_w, 
                  'im_channels': im_channels,
@@ -86,24 +80,19 @@ def main(args):
                  'noise_std': args.sgld_noise_std,
                  'buffer_size': args.buffer_size,
                  'reuse_freq': args.reuse_freq}
-    sgld_sampler = SGLD_Sampler(**sgld_args)
     
-    exp_name = create_exp_name(args)
-    print("Experiment: %s" % exp_name)
     trainer_args = {'models': models,
                     'train_loader': train_loader,
                     'num_epochs': args.num_epochs,
                     'device': device,
                     'exp_name': exp_name,
-                    'sgld_sampler': sgld_sampler,
+                    'sgld_sampler': SGLD_Sampler(**sgld_args),
                     'optimizer': args.optimizer,
                     'lr': args.lr,
                     'sgld_steps': args.sgld_steps,
                     'image_noise_std': args.image_noise_std,
-                    'regularize_coeff': args.regularize_coeff,
-                    }
+                    'regularize_coeff': args.regularize_coeff}
     trainer = Train_EBM(**trainer_args)
-    print('Start Training..')
     trainer.train()
     
 def parse_args():
@@ -125,23 +114,20 @@ def parse_args():
     parser.add_argument('--kernels', default="[3,4,4,4]")
     parser.add_argument('--strides', default="[1,2,2,2]")
     parser.add_argument('--paddings', default="[1,1,1,1]")
-    parser.add_argument('--hidden_dim', default="[128]")
+    parser.add_argument('--hidden_dims', default="[1024,256]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='Swish')
     parser.add_argument('--leak_slope', default=0.1, type=float, help='parameter for LeakyReLU activation')
-    parser.add_argument('--dropout_prob', default=0.2, type=float, help='parameter for dropout')
-    parser.add_argument('--batchnorm', action='store_true')
-    parser.add_argument('--dropout', action='store_true')
     parser.add_argument('--num_clusters', default=20, type=int)
     ## training config
-    parser.add_argument('--num_epochs', default=150, type=int)
+    parser.add_argument('--num_epochs', default=100, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
     ## sgld sampler config
-    parser.add_argument('--buffer_size', default=5000, type=int)
+    parser.add_argument('--buffer_size', default=10000, type=int)
     parser.add_argument('--reuse_freq', default=0.95, type=float)
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
-    parser.add_argument('--sgld_steps', default=5, type=int)
+    parser.add_argument('--sgld_steps', default=100, type=int)
     parser.add_argument('--regularize_coeff', default=1e-1, type=float)    
     return parser.parse_args()
 

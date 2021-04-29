@@ -1,35 +1,66 @@
+import torch
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from sklearn.metrics import roc_auc_score
 from sklearn.linear_model import LogisticRegression
 from cebm.data import setup_data_loader
 from cebm.utils import load_models
+from cebm.sgld import SGLD_Sampler
 
-
-network_args = {'im_height': im_h, 
-                'im_width': im_w, 
-                'input_channels': im_channels, 
-                'channels': eval(args.channels), 
-                'kernels': eval(args.kernels), 
-                'strides': eval(args.strides), 
-                'paddings': eval(args.paddings),
-                'activation': args.activation,
-                'hidden_dim': eval(args.hidden_dim),
-                'latent_dim': args.latent_dim}
-model_args = {'optimize_ib': args.optimize_ib,
-              'device': device,
-              'num_clusters': args.num_clusters}
-models = init_models(args.model_name, device, model_args, network_args)
+def plot_samples(images, denormlize, fs=1, save=False):
+    test_batch_size = len(images)
+    images = images.squeeze().cpu().detach()
+    images = torch.clamp(images, min=-1, max=1)
+    if denormlize:
+        images = images * 0.5 + 0.5
+    gs = gridspec.GridSpec(int(test_batch_size/10), 10)
+    gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
+    fig = plt.figure(figsize=(fs*10, fs*int(test_batch_size/10)))
+    for i in range(test_batch_size):
+        ax = fig.add_subplot(gs[int(i/10), i%10])
+        try:
+            ax.imshow(images[i], cmap='gray', vmin=0, vmax=1.0)
+        except:
+            ax.imshow(np.transpose(images[i], (1,2,0)), vmin=0, vmax=1.0)
+        ax.set_axis_off()
+        ax.set_xticks([])
+        ax.set_yticks([])
+    if save:
+        plt.savefig('samples/final_samples_%s.png' % self.dataset, dpi=300)
+        plt.close()
     
-
+def generate_samples(self, batch_size, **kwargs):
+    if self.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
+        raise NotImplementedError()
+  
+    elif self.model_name in ['VAE', 'VAE_GMM', 'BIGAN', 'BIGAN_GMM']:
+        return self.models['enc'].latent_params()
+    else:
+        raise NotImplementError
+            
+def uncond_sampling(models, sgld_steps, batch_size, sgld_args, save=False):
+    print('sample unconditionally from ebm..')
+    sgld_sampler = SGLD_Sampler(**sgld_args)
+    images_ebm = sgld_sampler.sample(ebm=models['ebm'], 
+                                     batch_size=batch_size, 
+                                     num_steps=sgld_steps,
+                                     pcd=False,
+                                     init_samples=None)
+    plot_samples(images_ebm, denormlize=True, save=save)    
+    
 class Evaluator():
-    def __init__(self, models, model_name, data, data_dir, device):
+    def __init__(self, models, model_name, data, data_dir, device, **kwargs):
         super().__init__()
         self.models = models
         self.model_name = model_name
         self.data = data
         self.data_dir = data_dir
         self.device = device
+        if self.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
+            self.sgld_sampler = kwargs['sgld_sampler']
         
     def latent_mode(self):
         if self.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
@@ -103,12 +134,12 @@ class Evaluator():
             results['Mean'].append(Accuracy.mean())
             results['Std'].append(Accuracy.std())
         pd.DataFrame.from_dict(results).to_csv('results/few_label/%s-%s-%s', index=False)
-            print('clf=%s, model=%s, data=%s, num_shots=%d, mean=%.2f, std=%.2f' % (classifier, self.model_name, self.data, 
-        fout.close()
+#         print('clf=%s, model=%s, data=%s, num_shots=%d, mean=%.2f, std=%.2f' % (classifier, self.model_name, self.data)
+#         fout.close()
     
-    def train_logistic_classifier(zs, ys, ):
-        accu = lr.score(zs_test, ys_test)
-    #     print('mean accuray=%.4f' % accu)
-        return accu
+#     def train_logistic_classifier(zs, ys, ):
+#         accu = lr.score(zs_test, ys_test)
+#     #     print('mean accuray=%.4f' % accu)
+#         return accu
  
         

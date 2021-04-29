@@ -1,23 +1,29 @@
+import numpy as np
 import torch
 import torch.nn as nn
-from cebm.net import cnn_block, mlp_block
-from cebm.utils import cnn_output_shape
+from torch import Tensor
+from typing import Optional, Any
+from cebm.net import cnn_block, mlp_block, cnn_output_shape
 
 class CEBM(nn.Module):
     """
     A generic class of CEBM 
     """
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, **kwargs):
+    def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
         super().__init__()
-        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, dropout=False, **kwargs)
+        self.device = device
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
         self.flatten = nn.Flatten()
         out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
         cnn_output_dim = out_h * out_w * channels[-1]
-        self.nss1_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, **kwargs)
-        self.nss2_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=False, **kwargs)
+#         self.nss1_net = mlp_block(cnn_output_dim, hidden_dims, latent_dim, activation, last_act=False, **kwargs)
+#         self.nss2_net = mlp_block(cnn_output_dim, hidden_dims, latent_dim, activation, last_act=False, **kwargs)
+        self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
+        self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
+        self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
         
     def forward(self, x):
-        h = self.flatten(self.conv_net(x))
+        h = self.mlp_net(self.flatten(self.conv_net(x)))
         nss1 = self.nss1_net(h) 
         nss2 = self.nss2_net(h)
         return nss1, -nss2**2
@@ -78,13 +84,10 @@ class CEBM_Gaussian(CEBM):
     """
     conjugate EBM with a spherical Gaussian inductive bias
     """
-    def __init__(self, optimize_ib, device, **kwargs):
-        super().__init__(**kwargs)
-        self.ib_mean = torch.zeros(kwargs['latent_dim']).to(device)
-        self.ib_log_std = torch.zeros(kwargs['latent_dim']).to(device)
-        if optimize_ib:
-            self.ib_mean = nn.Parameter(self.ib_mean)
-            self.ib_log_std = nn.Parameter(self.ib_log_std)
+    def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
+        super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs)
+        self.ib_mean = torch.zeros(latent_dim, device=self.device)
+        self.ib_log_std = torch.zeros(latent_dim, device=self.device)
     
     def energy(self, x):
         nss1, nss2 = self.forward(x)
@@ -105,16 +108,16 @@ class CEBM_GMM(CEBM):
     """
     conjugate EBM with a GMM inductive bias
     """
-    def __init__(self, optimize_ib, device, num_clusters, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, optimize_ib, num_clusters, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
+        super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs)
         #Suggested initialization
-        self.ib_means = 0.31 * torch.randn((num_clusters, kwargs['latent_dim'])).to(device)
-        self.ib_log_stds = (5*torch.rand((num_clusters, kwargs['latent_dim'])) + 1.0).log().to(device)
+        self.ib_means = 0.31 * torch.randn((num_clusters, latent_dim), device=self.device)
+        self.ib_log_stds = (5*torch.rand((num_clusters, latent_dim), device=self.device) + 1.0).log()
         if optimize_ib:
             self.ib_means = nn.Parameter(self.ib_means)
             self.ib_log_stds = nn.Parameter(self.ib_log_stds)
         self.K = num_clusters
-        self.log_K = torch.tensor([self.K], device=device).log()
+        self.log_K = torch.tensor([self.K], device=self.device).log()
     
     def energy(self, x):
         nss1, nss2 = self.forward(x)
@@ -137,17 +140,95 @@ class CEBM_GMM(CEBM):
         return torch.gather(means, 1, pred_y_expand).squeeze(1), torch.gather(stds, 1, pred_y_expand).squeeze(1)
 
 class IGEBM(nn.Module):
-    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, **kwargs):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
         super().__init__()
-        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, dropout=False, **kwargs)
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
         self.flatten = nn.Flatten()
         out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
         cnn_output_dim = out_h * out_w * channels[-1]
-        self.latent_net = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, last_act=True, **kwargs)        
+        hidden_dims.append(latent_dim)
+        self.latent_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
         self.energy_net = nn.Linear(latent_dim, 1)
-        
+
     def energy(self, x):
-        return self.energy(self.latent_net(self.flatten(self.conv_net(x))))
+        h = self.flatten(self.conv_net(x))
+        return self.energy_net(self.latent_net(h))
     
     def latent(self, x):
-        return self.latent_net[:-1](self.flatten(self.conv_net(x)))
+        return self.latent_net[:-2](self.flatten(self.conv_net(x)))
+
+####################################################################
+class META_CEBM_Omniglot(nn.Module):
+    def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, latent_dim, activation):
+        super().__init__()
+        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=True, maxpool_kernels=[2,2,2,2], maxpool_strides=[2,2,2,2])
+        self.flatten = nn.Flatten()
+        self.tr_enc = nn.TransformerEncoder(TransformerEncoderLayer(d_model=256, 
+                                                                    nhead=4, 
+                                                                    dim_feedforward=256, 
+                                                                    activation='ELU'),
+                                            num_layers=2)
+        
+        self.mean = nn.Linear(256, latent_dim)
+        self.log_std = nn.Linear(256, latent_dim)
+        self.reparameterized = True
+        
+    def forward(self, x):
+        mean, std = self.latent_params(x)
+        q = dists.Normal(mean, std)
+        z = q.rsample() if self.reparameterized else q.sample()
+        log_qz = q.log_prob(z).sum(-1)
+        return z, log_qz
+    
+    def latent_params(self, x):
+        S, B, C, H ,W = x.shape
+        h1 = self.flatten(self.conv_net(x.view(S*B, C, H, W))).view(S, B, -1)
+        h2 = self.tr_enc(h1)
+        return self.mean(h2), self.log_std(h2).exp()
+    
+class TransformerEncoderLayer(nn.Module):
+    """
+    Override the pytorch code by allowing ELU activation and remove the LayerNorm
+    
+    Args:
+        d_model: the number of expected features in the input (required).
+        nhead: the number of heads in the multiheadattention models (required).
+        dim_feedforward: the dimension of the feedforward network model (default=2048).
+        dropout: the dropout value (default=0.1).
+        activation: the activation function of intermediate layer, relu or gelu (default=relu).
+
+    Examples::
+        >>> encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
+        >>> src = torch.rand(10, 32, 512)
+        >>> out = encoder_layer(src)
+    """
+
+    def __init__(self, d_model, nhead=4, dim_feedforward=256, dropout=0.1, activation="elu"):
+        super(TransformerEncoderLayer, self).__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+        self.activation = getattr(nn, activation)()
+
+    def forward(self, src: Tensor, src_mask: Optional[Tensor] = None, src_key_padding_mask: Optional[Tensor] = None) -> Tensor:
+        r"""Pass the input through the encoder layer.
+
+        Args:
+            src: the sequence to the encoder layer (required).
+            src_mask: the mask for the src sequence (optional).
+            src_key_padding_mask: the mask for the src keys per batch (optional).
+
+        Shape:
+            see the docs in Transformer class.
+        """
+        src2 = self.self_attn(src, src, src, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)[0]
+        src = src + self.dropout1(src2)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        return src

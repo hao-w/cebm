@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import argparse
 from cebm.data import setup_data_loader
-from cebm.model.gan import Generator_BIGAN, Generator_BIGAN_GMM, Discriminator_BIGAN, Encoder_BIGAN
-from cebm.utils import set_seed, create_exp_name
+from cebm.utils import set_seed, create_exp_name, init_models
 from cebm.train.trainer import Trainer
 
 class Train_BIGAN(Trainer):
@@ -56,17 +55,6 @@ class Train_BIGAN(Trainer):
             metric_epoch['D(G(z))'] += pred_fake.detach().mean()
         return {k: (v / (b+1)).item() for k, v in metric_epoch.items()}
 
-def init_models(model_name, device, model_args, disc_enc_network_args, gen_network_args):
-    if model_name == 'BIGAN':
-        disc = Discriminator_BIGAN(**disc_enc_network_args)   
-        enc = Encoder_BIGAN(**disc_enc_network_args)
-        gen = Generator_BIGAN(**gen_network_args)
-    elif model_name == 'BIGAN_GMM':
-        disc = Discriminator_BIGAN(**disc_enc_network_args)   
-        enc = Encoder_BIGAN(**disc_enc_network_args)  
-        gen = Generator_BIGAN_GMM(model_args['optimize_prior'], model_args['num_clusters'], **gen_network_args)
-    return {'disc': disc.to(device), 'enc': enc.to(device), 'gen': gen.to(device)}
-
 def main(args):
     set_seed(args.seed)
     device = torch.device(args.device)
@@ -77,32 +65,35 @@ def main(args):
                     'batch_size': args.batch_size,
                     'train': True, 
                     'normalize': True}
+    
     train_loader, im_h, im_w, im_channels = setup_data_loader(**dataset_args)
     
-    disc_enc_network_args = {'im_height': im_h, 
-                             'im_width': im_w, 
-                             'input_channels': im_channels, 
-                             'channels': eval(args.channels), 
-                             'kernels': eval(args.kernels), 
-                             'strides': eval(args.strides), 
-                             'paddings': eval(args.paddings),
-                             'activation': args.activation,
-                             'hidden_dim': eval(args.hidden_dim),
-                             'latent_dim': args.latent_dim}
-    
-    gen_network_args = {'device': device,
-                        'channels': eval(args.gen_channels), 
-                        'kernels': eval(args.gen_kernels), 
-                        'strides': eval(args.gen_strides), 
-                        'paddings': eval(args.gen_paddings),
-                        'activation': args.gen_activation,
-                        'latent_dim': args.latent_dim}
+    network_args = {'device': device,
+                    'im_height': im_h, 
+                    'im_width': im_w, 
+                    'input_channels': im_channels, 
+                     'channels': eval(args.channels), 
+                     'kernels': eval(args.kernels), 
+                     'strides': eval(args.strides), 
+                     'paddings': eval(args.paddings),
+                     'hidden_dims': eval(args.hidden_dims),
+                     'latent_dim': args.latent_dim,
+                     'activation': args.activation,
+
+                     'leak_slope': args.leak_slope,
+                     
+                     'gen_channels': eval(args.gen_channels), 
+                     'gen_kernels': eval(args.gen_kernels), 
+                     'gen_strides': eval(args.gen_strides), 
+                     'gen_paddings': eval(args.gen_paddings),
+                     'gen_activation': args.gen_activation}
     
     model_args = {'optimize_prior': args.optimize_prior,
                   'num_clusters': args.num_clusters}
-    models = init_models(args.model_name, device, model_args, disc_enc_network_args, gen_network_args)
+    models = init_models(args.model_name, device, model_args, network_args)
+    for k, v in models.items():
+        print(v)
     exp_name = create_exp_name(args)
-    print("Experiment: %s" % exp_name)
 
     trainer_args = {'models': models,
                     'train_loader': train_loader,
@@ -140,12 +131,11 @@ def parse_args():
     parser.add_argument('--gen_channels', default="[64,64,32,32,1]") 
     parser.add_argument('--gen_strides', default="[1,2,2,2,2]")
     parser.add_argument('--gen_paddings', default="[1,1,1,1,1]")   
-    parser.add_argument('--hidden_dim', default="[128]")
+    parser.add_argument('--hidden_dims', default="[128]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='LeakyReLU')
     parser.add_argument('--gen_activation', default='ReLU')
     parser.add_argument('--leak_slope', default=0.2, type=float)
-    parser.add_argument('--dropout_prob', default=0.2, type=float)
     parser.add_argument('--num_clusters', default=20, type=int)
     ## training config
     parser.add_argument('--num_epochs', default=150, type=int)

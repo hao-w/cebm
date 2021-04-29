@@ -1,8 +1,7 @@
 import torch
 import argparse
 from cebm.data import setup_data_loader
-from cebm.model.clf import SEMI_CLF
-from cebm.utils import set_seed, create_exp_name
+from cebm.utils import set_seed, create_exp_name, init_models
 from cebm.train.trainer import Trainer
 
 class Train_SEMI_CLF(Trainer):

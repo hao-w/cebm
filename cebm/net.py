@@ -3,39 +3,8 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
-from cebm.utils import cnn_output_shape, dcnn_output_shape
-
-# def cnn_mlp_1out(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, cnn_last_act=True, mlp_last_act=False, batchnorm=False, dropout=False, **kwargs):
-#     """
-#     A cnn-mlp-based network with 1 output variable
-#     """
-#     cnn_block = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, cnn_last_act, batchnorm, dropout, **kwargs)
-#     out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
-#     cnn_output_dim = out_h * out_w * channels[-1]
-#     mlp_block = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, mlp_last_act, **kwargs)
-#     return nn.Sequential(*(list(cnn_block) + [nn.Flatten()] + list(mlp_block)))
-    
-# def cnn_mlp_2out(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, hidden_dim, latent_dim, cnn_last_act=True, mlp_last_act=False, batchnorm=False, dropout=False, **kwargs):
-#     """
-#     A cnn-mlp-based network with 2 output variables
-#     """
-#     cnn_block = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, cnn_last_act, batchnorm, dropout, **kwargs)
-#     out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
-#     cnn_output_dim = out_h * out_w * channels[-1]
-#     mlp_block1 = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, mlp_last_act, **kwargs)
-#     mlp_block2 = mlp_block(cnn_output_dim, hidden_dim, latent_dim, activation, mlp_last_act, **kwargs)
-#     return nn.Sequential(*(list(cnn_block) + [nn.Flatten()])), mlp_block1, mlp_block2
-
-# def mlp_dcnn(mlp_input_dim, hidden_dim, dcnn_input_height, dcnn_input_width, dcnn_input_channels, channels, kernels, strides, paddings, activation, cnn_last_act=False, mlp_last_act=True, batchnorm=False, dropout=False, **kwargs):
-#     """
-#     A mlp-cnn-based decoder that reverse the encoding procedure of cnn-based encoder
-#     """
-#     mlp_output_dim = dcnn_input_height * dcnn_input_width * dcnn_input_channels
-#     mlp_block = mlp_block(mlp_input_dim, hidden_dim, mlp_output_dim, activation, mlp_last_act, **kwargs)
-#     dcnn_block = _dcnn_block(dcnn_input_height, dcnn_input_width, dcnn_input_channels, channels, kernels, strides, paddings, activation, cnn_last_act, batchnorm, dropout, **kwargs)    
-#     return nn.Sequential(*(list(mlp_block) + [Reshape([dcnn_input_channels, dcnn_input_height, dcnn_input_width])] + list(dcnn_block)))
-                    
-def cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act, batchnorm, dropout, **kwargs):
+                 
+def cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act, batchnorm, **kwargs):
     """
     building blocks for a convnet.
     each block is in form of:
@@ -57,22 +26,18 @@ def cnn_block(im_height, im_width, input_channels, channels, kernels, strides, p
     in_c = input_channels
     for i, out_c in enumerate(channels):
         layers.append(nn.Conv2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i]))
-        if batchnorm:
-            layers.append(nn.BatchNorm2d(out_c))
-        layers.append(act)
-        if dropout:
-            layers.append(nn.Dropout2d(kwargs['dropout_prob']))
+        if (i < (len(channels)-1)) or last_act:#Last layer will be customized 
+            if batchnorm:
+                layers.append(nn.BatchNorm2d(out_c))
+            layers.append(act)
+            if 'dropout_prob' in kwargs:
+                layers.append(nn.Dropout2d(kwargs['dropout_prob']))
+            if 'maxpool_kernels' in kwargs and 'maxpool_strides' in kwargs:
+                layers.append(nn.MaxPool2d(kernel_size=kwargs['maxpool_kernels'][i], stride=kwargs['maxpool_strides'][i]))
         in_c = out_c
-    #Last layer will be customized 
-    if not last_act:
-        if dropout:
-            layers = layers[:-1]
-        layers = layers[:-1]
-        if batchnorm:
-            layers = layers[:-1]
     return nn.Sequential(*layers)
 
-def deconv_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act, batchnorm, dropout, **kwargs):
+def deconv_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act, batchnorm, **kwargs):
     """
     building blocks for a deconvnet
     """
@@ -89,17 +54,14 @@ def deconv_block(im_height, im_width, input_channels, channels, kernels, strides
     in_c = input_channels
     for i, out_c in enumerate(channels):
         layers.append(nn.ConvTranspose2d(in_c, out_c, kernel_size=kernels[i], stride=strides[i], padding=paddings[i]))
-        if batchnorm:
-            layers.append(nn.BatchNorm2d(out_c)) 
-        layers.append(act)
+        if (i < (len(channels)-1)) or last_act:
+            if batchnorm:
+                layers.append(nn.BatchNorm2d(out_c)) 
+            layers.append(act)
         in_c = out_c
-    if not last_act:
-        layers = layers[:-1]
-        if batchnorm:
-            layers = layers[:-1]
     return nn.Sequential(*layers)
 
-def mlp_block(input_dim, hidden_dim, latent_dim, activation, last_act, **kwargs):
+def mlp_block(input_dim, hidden_dims, activation, **kwargs):
     """
     building blocks for a mlp
     """
@@ -111,13 +73,10 @@ def mlp_block(input_dim, hidden_dim, latent_dim, activation, last_act, **kwargs)
         act = getattr(nn, activation)()
     layers = []
     in_dim = input_dim
-    for i, out_dim in enumerate(hidden_dim):
+    for i, out_dim in enumerate(hidden_dims):
         layers.append(nn.Linear(in_dim, out_dim))
         layers.append(act)
         in_dim = out_dim
-    layers.append(nn.Linear(in_dim, latent_dim))
-    if last_act:
-        layers.append(act)
     return nn.Sequential(*layers)
 
 class Identity(nn.Module):
@@ -143,3 +102,71 @@ class Swish(nn.Module):
 
     def forward(self, x):
         return x * torch.sigmoid(x)
+    
+    
+def conv_output_shape(h_w, kernel_size=1, stride=1, padding=0, dilation=1):
+    """
+    Utility function for computing output of convolutions
+    takes a tuple of (h,w) and returns a tuple of (h,w)
+    """
+
+    if type(h_w) is not tuple:
+        h_w = (h_w, h_w)
+
+    if type(kernel_size) is not tuple:
+        kernel_size = (kernel_size, kernel_size)
+
+    if type(stride) is not tuple:
+        stride = (stride, stride)
+
+    if type(padding) is not tuple:
+        padding = (padding, padding)
+
+    h = (h_w[0] + (2 * padding[0]) - (dilation * (kernel_size[0] - 1)) - 1)// stride[0] + 1
+    w = (h_w[1] + (2 * padding[1]) - (dilation * (kernel_size[1] - 1)) - 1)// stride[1] + 1
+
+    return h, w
+
+def deconv_output_shape(h_w, kernel_size=1, stride=1, padding=0, dilation=1):
+    """
+    Utility function for computing output of deconvolutions
+    takes a tuple of (h,w) and returns a tuple of (h,w)
+    """
+
+    if type(h_w) is not tuple:
+        h_w = (h_w, h_w)
+
+    if type(kernel_size) is not tuple:
+        kernel_size = (kernel_size, kernel_size)
+
+    if type(stride) is not tuple:
+        stride = (stride, stride)
+
+    if type(padding) is not tuple:
+        padding = (padding, padding)
+    h = (h_w[0] - 1) * stride[0] - 2 * padding[0]  + (dilation * (kernel_size[0] - 1)) + 1
+    w = (h_w[1] - 1) * stride[1] - 2 * padding[1]  + (dilation * (kernel_size[1] - 1)) + 1
+
+    return h, w
+
+def cnn_output_shape(h, w, kernels, strides, paddings):
+    h_w = (h, w)
+    for i, kernel in enumerate(kernels):
+        h_w = conv_output_shape(h_w, kernels[i], strides[i], paddings[i])
+    return h_w
+
+def dcnn_output_shape(h, w, kernels, strides, paddings):
+    h_w = (h, w)
+    for i, kernel in enumerate(kernels):
+        h_w = deconv_output_shape(h_w, kernels[i], strides[i], paddings[i])
+    return h_w
+
+def wres_block_params(stride, swap_cnn):
+    kernels = [3,3]
+    paddings = [1,1]
+    if swap_cnn:
+        strides = [1, stride]
+    else:
+        strides = [stride, 1]
+    return kernels, strides, paddings
+        
