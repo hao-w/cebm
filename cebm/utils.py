@@ -2,7 +2,7 @@ import os
 import torch
 import random
 import numpy as np
-from cebm.model.ebm import CEBM_Gaussian, CEBM_GMM, IGEBM
+from cebm.model.ebm import *
 from cebm.model.vae import Encoder_VAE, Decoder_VAE_Gaussian, Decoder_VAE_GMM
 from cebm.model.gan import Discriminator_BIGAN, Encoder_BIGAN, Generator_BIGAN, Generator_BIGAN_GMM
 
@@ -41,8 +41,11 @@ def create_exp_name(args):
                     (args.model_name, args.data, args.latent_dim, args.lr, 
                      args.reg_lambda, args.seed)  
         
-    elif args.model_name == 'META_GMVAE':
-        exp_name = 'META_GMVAE_d=%s_z=%s' % (args.data, args.latent_dim)
+    elif args.model_name == 'META_CEBM':
+        exp_name = 'META_CEBM_d=%s_z=%s' % (args.data, args.latent_dim)
+    
+    elif args.model_name in ['CEBM_VERA', 'CEBM_GMM_VERA', 'IGEBM_VERA']:
+        exp_name = '%s_d=%s_z=%s' % (args.model_name, args.data, args.latent_dim)
     else:
         raise ValueError
         
@@ -52,40 +55,7 @@ def create_exp_name(args):
     print("Experiment: %s" % exp_name)
     return exp_name
 
-def init_models(model_name, device, model_args, network_args):
-#     if data in ['mnist', 'fashionmnist']:
-#         network_args = {'device': device,
-#                         'im_height': im_h, 
-#                         'im_width': im_w, 
-#                         'input_channels': im_channels, 
-#                         'channels': [64,64,32,32], 
-#                         'kernels': [3,4,4,4], 
-#                         'strides': [1,2,2,2], 
-#                         'paddings': [1,1,1,1],
-#                         'hidden_dims': [128],
-#                         'latent_dim': latent_dim,
-#                         'activation': activation,
-#                         'leaky_slope': 0.2}
-        
-#         if model_name in ['VAE', 'VAE_GMM']:
-#             network_args['dec_paddings'] = [1,1,0,0]
-#     else:
-#         network_args = {'device': device,
-#                         'im_height': im_h, 
-#                         'im_width': im_w, 
-#                         'input_channels': im_channels, 
-#                         'channels': [64,128,256,512], 
-#                         'kernels': [3,4,4,4], 
-#                         'strides': [1,2,2,2], 
-#                         'paddings': [1,1,1,1],
-#                         'hidden_dims': [1024,256],
-#                         'latent_dim': latent_dim,
-#                         'activation': activation,
-#                         'leaky_slope': 0.2}  
-#         if model_name in ['VAE', 'VAE_GMM']:
-#             raise ValueError('need to specify the dec_paddings for decoder')
-# #             network_args['dec_paddings']
-        
+def init_models(model_name, device, model_args, network_args):        
     if model_name in ['CEBM', 'CEBM_GMM', 'IGEBM']:
         if model_name == 'CEBM':
             model = CEBM_Gaussian(**network_args)        
@@ -111,6 +81,26 @@ def init_models(model_name, device, model_args, network_args):
         elif model_name == 'BIGAN_GMM': 
             gen = Generator_BIGAN_GMM(model_args['optimize_prior'], model_args['num_clusters'], **network_args)
         return {'disc': disc.to(device), 'enc': enc.to(device), 'gen': gen.to(device)}
+    
+    elif model_name == 'META_CEBM':
+        enc = META_CEBM_Omniglot(**network_args)
+        return {'ebm': enc.to(device)}
+    
+    elif model_name in ['CEBM_VERA', 'CEBM_GMM_VERA', 'IGEBM_VERA']:
+        if model_name == 'CEBM_VERA':
+            model = CEBM_Gaussian(**network_args) 
+            network_args['activation'] = 'ReLU'
+            gen = Generator_VERA_Gaussian(**network_args)
+        elif model_name == 'CEBM_GMM_VERA':
+            model = CEBM_GMM(model_args['optimize_ib'], model_args['num_clusters'], **network_args)   
+            gen = Generator_VERA_GMM(model_args['optimize_prior'], model_args['num_clusters'], **network_args)
+        elif model_name == 'IGEBM_VERA':
+            model = IGEBM(**network_args)
+            network_args['activation'] = 'ReLU'
+            gen = Generator_VERA_Gaussian(**network_args)
+#         xee_logsigma = torch.nn.Parameter((torch.ones(network_args['latent_dim'], device=device) * 0.1).log())
+        xee = Xee(device, network_args['latent_dim'], network_args['xee_init_sigma'])
+        return {'ebm': model.to(device), 'gen': gen.to(device), 'xee': xee}
 
 def save_models(models, filename, weights_dir="./weights"):
     checkpoint = {k: v.state_dict() for k, v in models.items()}
