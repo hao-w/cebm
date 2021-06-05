@@ -28,8 +28,8 @@ class Trainer():
     
     #FIXME: hao will replace this function with tensorboard API later.
     def logging(self, metrics, epoch):
-        if not os.path.exists('./loggings/'):
-            os.makedirs('./loggings/')
+        if not os.path.exists('./logging/'):
+            os.makedirs('./logging/')
         fout = open('./logging/' + self.exp_name + '.txt', mode='w+' if epoch==0 else 'a+')
         metric_print = ",  ".join(['%s=%.2e' % (k, v) for k, v in metrics.items()])
         print("Epoch=%d, " % (epoch+1) + metric_print, file=fout)
