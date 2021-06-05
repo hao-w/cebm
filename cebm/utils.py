@@ -98,7 +98,7 @@ def init_models(model_name, device, model_args, network_args):
         elif model_name == 'IGEBM_VERA':
             model = IGEBM(**network_args)
             network_args['activation'] = 'ReLU'
-            gen = Generator_VERA_Gaussian(**network_args)
+            gen = Generator_VERA_GAN(**network_args)
 #         xee_logsigma = torch.nn.Parameter((torch.ones(network_args['latent_dim'], device=device) * 0.1).log())
         xee = Xee(device, network_args['latent_dim'], network_args['xee_init_sigma'])
         return {'ebm': model.to(device), 'gen': gen.to(device), 'xee': xee}
