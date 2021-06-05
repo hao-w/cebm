@@ -307,6 +307,43 @@ class Generator(nn.Module):
     def forward(self, z, x):
         pass
 
+class Generator_VERA_GAN(nn.Module):
+    """
+    A generator in BIGAN with a Gaussian prior on noise
+    """
+    def __init__(self, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
+        super().__init__()
+        self.gen_net = deconv_block(im_height=1, im_width=1, input_channels=latent_dim, channels=gen_channels, kernels=gen_kernels, strides=gen_strides, paddings=gen_paddings, activation=gen_activation, last_act=False, batchnorm=True)
+        self.last_act = nn.Tanh()
+        self.reparameterized = reparameterized
+        self.device = device
+        self.latent_dim = latent_dim  
+        self.prior_mean = torch.zeros(latent_dim, device=self.device)
+        self.prior_log_std = torch.zeros(latent_dim, device=self.device)
+        self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
+        
+    def forward(self, z):
+        return self.last_act(self.gen_net(z[:, :, None, None]))
+
+    def sample(self, batch_size):
+        z0 = Normal(self.prior_mean, self.prior_log_std.exp()).sample((batch_size,))
+        xr_mu = self.last_act(self.gen_net(z0[:, :, None, None]))
+        xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
+        return z0, xr, xr_mu
+    
+    def log_joint(self, x, z):
+        log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
+        if z.dim() == 2:
+            x_mu = self.last_act(self.gen_net(z[:, :, None, None]))
+            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+        elif z.dim() == 3:
+            S, B, D = z.shape
+            x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[:, :, None, None]))
+            x_mu = x_mu.view(S, B, *x_mu.shape[1:])
+            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+        assert ll.shape == log_p_z.shape
+        return ll + log_p_z, x_mu
+    
 class Generator_VERA_Gaussian(Generator):
     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
         super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs)

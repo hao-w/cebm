@@ -10,11 +10,11 @@ from cebm.data import setup_data_loader
 from cebm.utils import load_models
 from cebm.sgld import SGLD_Sampler
 
-def plot_samples(images, denormlize, fs=1, save=False):
+def plot_samples(images, denormalize, fs=1, save=False):
     test_batch_size = len(images)
     images = images.squeeze().cpu().detach()
     images = torch.clamp(images, min=-1, max=1)
-    if denormlize:
+    if denormalize:
         images = images * 0.5 + 0.5
     gs = gridspec.GridSpec(int(test_batch_size/10), 10)
     gs.update(left=0.0 , bottom=0.0, right=1.0, top=1.0, wspace=0.1, hspace=0.1)
@@ -41,15 +41,15 @@ def generate_samples(self, batch_size, **kwargs):
     else:
         raise NotImplementError
             
-def uncond_sampling(models, sgld_steps, batch_size, sgld_args, save=False):
+def uncond_sampling(models, sgld_steps, batch_size, sgld_args, init_samples=None, save=False):
     print('sample unconditionally from ebm..')
     sgld_sampler = SGLD_Sampler(**sgld_args)
     images_ebm = sgld_sampler.sample(ebm=models['ebm'], 
                                      batch_size=batch_size, 
                                      num_steps=sgld_steps,
                                      pcd=False,
-                                     init_samples=None)
-    plot_samples(images_ebm, denormlize=True, save=save)    
+                                     init_samples=init_samples)
+    plot_samples(images_ebm, denormalize=True, save=save)    
     
 class Evaluator():
     def __init__(self, models, model_name, data, data_dir, device, **kwargs):
