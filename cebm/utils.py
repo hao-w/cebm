@@ -94,7 +94,7 @@ def init_models(model_name, device, model_args, network_args):
 #             gen = Generator_VERA_Gaussian(**network_args)
         elif model_name == 'CEBM_GMM_VERA':
             model = CEBM_GMM(model_args['optimize_ib'], model_args['num_clusters'], **network_args)   
-            gen = Generator_VERA_GMM(model_args['optimize_prior'], model_args['num_clusters'], **network_args)
+            gen = Generator_VERA_GAN(**network_args)
         elif model_name == 'IGEBM_VERA':
             model = IGEBM(**network_args)
             network_args['activation'] = 'ReLU'

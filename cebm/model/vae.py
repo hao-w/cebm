@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -55,10 +56,12 @@ class Decoder_VAE_GMM(Decoder):
     def forward(self, z, x):
         S, B, C, H ,W = x.shape
         k = dists.OneHotCategorical(probs=self.prior_pi).sample((S*B,)).argmax(-1)
-        prior_mean_sampled = self.prior_means[k].view(S,B,-1)
-        prior_log_std_sampled = self.prior_log_stds[k].view(S,B,-1)
+#         prior_mean_sampled = self.prior_means[k].view(S,B,-1)
+#         prior_log_std_sampled = self.prior_log_stds[k].view(S,B,-1)
         recon = self.dec_net(z.view(S*B, -1)).view(S, B, C, H, W)
-        log_pz = dists.Normal(prior_mean_sampled, prior_log_std_sampled.exp()).log_prob(z).sum(-1)
+        p_dist = dists.Normal(self.prior_means[:, None, None, :], 
+                              self.prior_log_stds.exp()[:, None, None, :])
+        log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
         ll = - self.binary_cross_entropy(recon, x)
         return recon, ll, log_pz
 

@@ -37,7 +37,7 @@ class Generator_BIGAN_GMM(Generator_BIGAN):
         y = cat(probs=self.prior_pi).sample((batch_size,)).argmax(-1)
         p = Normal(self.prior_means[y], self.prior_log_stds[y].exp())
         z = p.rsample() if self.reparameterized else p.sample()
-        x = self.gen_net(z.unsqueeze(-1).unsqueeze(-1))
+        x = self.last_act(self.gen_net(z.unsqueeze(-1).unsqueeze(-1)))
         return z, x
 
     

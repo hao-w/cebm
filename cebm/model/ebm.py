@@ -323,52 +323,91 @@ class Generator_VERA_GAN(nn.Module):
         self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
         
     def forward(self, z):
-        return self.last_act(self.gen_net(z[:, :, None, None]))
+        return self.last_act(self.gen_net(z[..., None, None]))
 
     def sample(self, batch_size):
         z0 = Normal(self.prior_mean, self.prior_log_std.exp()).sample((batch_size,))
-        xr_mu = self.last_act(self.gen_net(z0[:, :, None, None]))
+        xr_mu = self.last_act(self.gen_net(z0[..., None, None]))
         xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
         return z0, xr, xr_mu
     
     def log_joint(self, x, z):
         log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
         if z.dim() == 2:
-            x_mu = self.last_act(self.gen_net(z[:, :, None, None]))
+            x_mu = self.last_act(self.gen_net(z[..., None, None]))
             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
         elif z.dim() == 3:
             S, B, D = z.shape
-            x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[:, :, None, None]))
+            x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[..., None, None]))
             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
         assert ll.shape == log_p_z.shape
         return ll + log_p_z, x_mu
     
-class Generator_VERA_Gaussian(Generator):
-    def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
-        super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs)
-        self.prior_mean = torch.zeros(latent_dim, device=self.device)
-        self.prior_log_std = torch.zeros(latent_dim, device=self.device)
-        self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
-        
+class Generator_VERA_GAN_GMM(Generator_VERA_GAN):
+    def __init__(self, optimize_prior, num_clusters, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
+        super().__init__(device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=reparameterized)
+
+        self.prior_means = 0.31 * torch.randn((num_clusters, self.latent_dim), device=device)
+        self.prior_log_stds = (5*torch.rand((num_clusters, self.latent_dim), device=device) + 1.0).log()
+        if optimize_prior:
+            self.prior_means = nn.Parameter(self.prior_means)
+            self.prior_log_stds = nn.Parameter(self.prior_log_stds)
+        self.prior_pi = torch.ones(num_clusters, device=self.device) / num_clusters
+    
     def sample(self, batch_size):
-        z0 = Normal(self.prior_mean, self.prior_log_std.exp()).sample((batch_size,))
-        xr_mu = self.deconv_net(self.reshape(self.mlp(z0)))
+        y = cat(probs=self.prior_pi).sample((batch_size,)).argmax(-1)
+        p = Normal(self.prior_means[y], self.prior_log_stds[y].exp())
+        z0 = p.rsample() if self.reparameterized else p.sample()
+        xr_mu = self.last_act(self.gen_net(z0[..., None, None]))
         xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
         return z0, xr, xr_mu
     
     def log_joint(self, x, z):
+
         log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
         if z.dim() == 2:
-            x_mu = self.deconv_net(self.reshape(self.mlp(z)))
+            p_dist = dists.Normal(self.prior_means[:, None, :], 
+                              self.prior_log_stds.exp()[:, None, :])
+            log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
+            x_mu = self.last_act(self.gen_net(z[..., None, None]))
             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
         elif z.dim() == 3:
             S, B, D = z.shape
-            x_mu = self.deconv_net(self.reshape(self.mlp(z.view(S*B, D))))
+            p_dist = dists.Normal(self.prior_means[:, None, None, :], 
+                              self.prior_log_stds.exp()[:, None, None, :])
+            log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
+            x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[..., None, None]))
             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
         assert ll.shape == log_p_z.shape
         return ll + log_p_z, x_mu
+    
+# class Generator_VERA_Gaussian(Generator):
+#     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
+#         super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs)
+#         self.prior_mean = torch.zeros(latent_dim, device=self.device)
+#         self.prior_log_std = torch.zeros(latent_dim, device=self.device)
+#         self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
+        
+#     def sample(self, batch_size):
+#         z0 = Normal(self.prior_mean, self.prior_log_std.exp()).sample((batch_size,))
+#         xr_mu = self.deconv_net(self.reshape(self.mlp(z0)))
+#         xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
+#         return z0, xr, xr_mu
+    
+#     def log_joint(self, x, z):
+#         log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
+#         if z.dim() == 2:
+#             x_mu = self.deconv_net(self.reshape(self.mlp(z)))
+#             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+#         elif z.dim() == 3:
+#             S, B, D = z.shape
+#             x_mu = self.deconv_net(self.reshape(self.mlp(z.view(S*B, D))))
+#             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
+#             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+#         assert ll.shape == log_p_z.shape
+#         return ll + log_p_z, x_mu
     
 class Xee(nn.Module):
     def __init__(self, device, latent_dim, init_sigma):
@@ -411,7 +450,9 @@ class Xee(nn.Module):
 #         recon = self.dec_net(z.view(S*B, -1)).view(S, B, C, H, W)
 #         log_pz = dists.Normal(prior_mean_sampled, prior_log_std_sampled.exp()).log_prob(z).sum(-1)
 #         ll = - self.binary_cross_entropy(recon, x)
-#         return recon, ll, log_pz    
+#         return recon, ll, log_pz 
+
+
 ####################################################################
 class META_CEBM_Omniglot(nn.Module):
     def __init__(self, num_clusters, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, latent_dim, activation):
