@@ -45,7 +45,7 @@ def create_exp_name(args):
         exp_name = 'META_CEBM_d=%s_z=%s' % (args.data, args.latent_dim)
     
     elif args.model_name in ['CEBM_VERA', 'CEBM_GMM_VERA', 'IGEBM_VERA']:
-        exp_name = '%s_d=%s_z=%s' % (args.model_name, args.data, args.latent_dim)
+        exp_name = '%s_d=%s_z=%s_lamb=%s' % (args.model_name, args.data, args.latent_dim, args.lambda_ent)
     else:
         raise ValueError
         

@@ -183,7 +183,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', choices=['CEBM_VERA', 'IGEBM_VERA', 'CEBM_GMM_VERA'])
     parser.add_argument('--seed', default=1, type=int)
-    parser.add_argument('--device', default='cuda:1', type=str)
+    parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--exp_id', default=None)
     ## data config
     parser.add_argument('--data', required=True)
