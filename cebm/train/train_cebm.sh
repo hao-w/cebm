@@ -1,23 +1,23 @@
 #!/bin/sh
 
 model=CEBM_VERA
-device=cuda:0
+device=cuda:1
 likelihood=cb
 lambda_ent=1e-4
 
-python train_vera.py --data=mnist \
+python3 train_vera.py --data=mnist \
                      --model_name=$model \
                      --device=$device \
                      --lr_xee=1e-3 \
                      --likelihood=$likelihood
 
-python train_vera.py --data=fmnist \
+python3 train_vera.py --data=fmnist \
                      --model_name=$model \
                      --device=$device \
                      --lr_xee=1e-3 \
                      --likelihood=$likelihood
                      
-python train_vera.py --data=cifar10 \
+python3 train_vera.py --data=cifar10 \
                      --model_name=$model \
                      --channels=[64,128,256,512] \
                      --kernels=[3,4,4,4] \
@@ -34,7 +34,7 @@ python train_vera.py --data=cifar10 \
                      --device=$device \
                      --likelihood=$likelihood
 
-python train_vera.py --data=svhn \
+python3 train_vera.py --data=svhn \
                      --model_name=$model \
                      --channels=[64,128,256,512] \
                      --kernels=[3,4,4,4] \
