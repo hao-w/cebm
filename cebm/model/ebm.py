@@ -6,133 +6,7 @@ from typing import Optional, Any
 from cebm.net import cnn_block, deconv_block, mlp_block, cnn_output_shape, Swish, Reshape
 from torch.distributions.normal import Normal
 from torch.distributions.one_hot_categorical import OneHotCategorical as cat
-
-# class CEBM(nn.Module):
-#     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
-#         super().__init__()
-#         self.device = device
-#         if activation == 'Swish':
-#             act = Swish()
-#         elif activation == 'LeakyReLU':
-#             act = nn.LeakyReLU(inplace=True)
-#         else:
-#             act = getattr(nn, activation)()
-            
-#         self.conv1 = nn.Conv2d(input_channels, 128, kernel_size=3, padding=1, bias=True)
-#         self.res1 = BasicBlock(in_c=128, out_c=128, stride=2)
-# #         self.res2 = BasicBlock(in_c=128, out_c=128, stride=1)
-# #         self.res3 = BasicBlock(in_c=128, out_c=128, stride=1)
-#         self.res4 = BasicBlock(in_c=128, out_c=256, stride=2)
-# #         self.res5 = BasicBlock(in_c=256, out_c=256, stride=1)
-# #         self.res6 = BasicBlock(in_c=256, out_c=256, stride=1)
-#         self.res7 = BasicBlock(in_c=256, out_c=512, stride=2)
-# #         self.res8 = BasicBlock(in_c=512, out_c=512, stride=1)
-# #         self.res9 = BasicBlock(in_c=512, out_c=512, stride=1)
-#         self.fc1 = nn.Sequential(
-#                     nn.Linear(512*4*4, 512),
-#                     act)
-        
-#         self.nss1_net = nn.Linear(512, latent_dim)
-#         self.nss2_net = nn.Linear(512, latent_dim)
-                    
-#         self.flatten = nn.Flatten()
-            
-        
-#     def forward(self, x):
-#         h0 = self.conv1(x)
-#         h1 = self.res1(h0)
-# #         h2 = self.res2(h1)
-# #         h3 = self.res3(h2)
-#         h4 = self.res4(h1)
-# #         h5 = self.res5(h4)
-# #         h6 = self.res6(h5)
-#         h7 = self.res7(h4)
-# #         h8 = self.res8(h7)
-# #         h9 = self.res9(h8)
-#         h10 = self.fc1(self.flatten(h7))
-#         nss1 = self.nss1_net(h10)
-#         nss2 = self.nss2_net(h10)
-#         return nss1, -nss2**2
-        
-#     def log_partition(self, nat1, nat2):
-#         """
-#         compute the log partition of a normal distribution
-#         """
-#         return - 0.25 * (nat1 ** 2) / nat2 - 0.5 * (-2 * nat2).log()  
-    
-#     def nats_to_params(self, nat1, nat2):
-#         """
-#         convert a Gaussian natural parameters its distritbuion parameters,
-#         mu = - 0.5 *  (nat1 / nat2), 
-#         sigma = (- 0.5 / nat2).sqrt()
-#         nat1 : natural parameter which correspond to x,
-#         nat2 : natural parameter which correspond to x^2.      
-#         """
-#         mu = - 0.5 * nat1 / nat2
-#         sigma = (- 0.5 / nat2).sqrt()
-#         return mu, sigma
-
-#     def params_to_nats(self, mu, sigma):
-#         """
-#         convert a Gaussian distribution parameters to the natrual parameters
-#         nat1 = mean / sigma**2, 
-#         nat2 = - 1 / (2 * sigma**2)
-#         nat1 : natural parameter which correspond to x,
-#         nat2 : natural parameter which correspond to x^2.
-#         """
-#         nat1 = mu / (sigma**2)
-#         nat2 = - 0.5 / (sigma**2)
-#         return nat1, nat2    
-    
-#     def log_factor(self, x, latents, expand_dim=None):
-#         """
-#         compute the log factor log p(x | z) for the CEBM
-#         """
-#         nss1, nss2 = self.forward(x)
-#         if expand_dim is not None:
-#             nss1 = nss1.repeat(expand_dim , 1, 1)
-#             nss2 = nss2.repeat(expand_dim , 1, 1)
-#             return (nss1 * latents).sum(2) + (nss2 * (latents**2)).sum(2)
-#         else:
-#             return (nss1 * latents).sum(1) + (nss2 * (latents**2)).sum(1) 
-    
-#     def energy(self, x):
-#         pass
-    
-#     def latent_params(self, x):
-#         pass
-        
-#     def log_prior(self, latents):
-#         pass   
-    
-        
-class BasicBlock(nn.Module):
-    """
-    basic block module
-        stride   -- stride of the 1st cnn in the 1st block in a group
-        bn_flag -- whether do batch normalization
-    """
-    def __init__(self, in_c, out_c, stride, activation=nn.LeakyReLU(inplace=True)):
-        super(BasicBlock, self).__init__()
-
-        self.activation = activation
-        self.c1 = nn.Conv2d(in_c, out_c, kernel_size=3, stride=1, padding=1, bias=True)
-        self.c2 = nn.Conv2d(out_c, out_c, kernel_size=3, stride=stride, padding=1, bias=True)
-                    
-        if in_c != out_c:
-            self.shortcut = nn.Conv2d(in_c, out_c, kernel_size=1, stride=stride, bias=True)
-        else:
-            if stride != 1:
-                self.shortcut = nn.AvgPool2d(kernel_size=2)
-            else:
-                self.shortcut = nn.Identity()
-
-    def forward(self, x):
-        h1 = self.activation(self.c1(x))
-        h2 = self.activation(self.c2(h1))
-        out = self.activation(h2 + self.shortcut(x))
-        
-        return out  
+from torch.distributions.continuous_bernoulli import ContinuousBernoulli as CB
     
 class CEBM(nn.Module):
     """
@@ -140,17 +14,25 @@ class CEBM(nn.Module):
     """
     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
         super().__init__()
+        self.output_arch = kwargs['output_arch']
         self.device = device
-        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
         self.flatten = nn.Flatten()
-        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
-        cnn_output_dim = out_h * out_w * channels[-1]
-#         self.nss1_net = mlp_block(cnn_output_dim, hidden_dims, latent_dim, activation, last_act=False, **kwargs)
-#         self.nss2_net = mlp_block(cnn_output_dim, hidden_dims, latent_dim, activation, last_act=False, **kwargs)
-        self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
-        self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
-        self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
+        if self.output_arch == 'wresnet':
+            self.conv_net = Wide_Residual_Net(depth=28, width=10)
+            cnn_output_dim = self.conv_net.flatten_output_dim
+            self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
+            self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
+            self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
         
+        elif self.output_arch == 'mlp':     
+            self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
+            out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+            cnn_output_dim = out_h * out_w * channels[-1]
+            self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
+            self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
+            self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
+        
+
     def forward(self, x):
         h = self.mlp_net(self.flatten(self.conv_net(x)))
         nss1 = self.nss1_net(h) 
@@ -311,77 +193,108 @@ class Generator_VERA_GAN(nn.Module):
     """
     A generator in BIGAN with a Gaussian prior on noise
     """
-    def __init__(self, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
+    def __init__(self, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, likelihood='gaussian', **kwargs):
         super().__init__()
         self.gen_net = deconv_block(im_height=1, im_width=1, input_channels=latent_dim, channels=gen_channels, kernels=gen_kernels, strides=gen_strides, paddings=gen_paddings, activation=gen_activation, last_act=False, batchnorm=True)
-        self.last_act = nn.Tanh()
-        self.reparameterized = reparameterized
+        self.likelihood = likelihood
         self.device = device
         self.latent_dim = latent_dim  
         self.prior_mean = torch.zeros(latent_dim, device=self.device)
         self.prior_log_std = torch.zeros(latent_dim, device=self.device)
-        self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
-        
+
+        if self.likelihood == 'gaussian':
+            self.last_act = nn.Tanh()
+            self.x_logsigma = nn.Parameter((torch.ones(1, device=self.device) * .01).log())
+
+        elif self.likelihood == 'cb':
+            self.last_act = nn.Sigmoid()
+
     def forward(self, z):
         return self.last_act(self.gen_net(z[..., None, None]))
 
     def sample(self, batch_size):
         z0 = Normal(self.prior_mean, self.prior_log_std.exp()).sample((batch_size,))
         xr_mu = self.last_act(self.gen_net(z0[..., None, None]))
-        xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
+        if self.likelihood == 'gaussian':
+            xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
+        elif self.likelihood == 'cb':
+            xr = CB(probs=xr_mu).rsample()
         return z0, xr, xr_mu
-    
+        
     def log_joint(self, x, z):
         log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
         if z.dim() == 2:
             x_mu = self.last_act(self.gen_net(z[..., None, None]))
-            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+            if self.likelihood == 'gaussian':
+                ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+            elif self.likelihood == 'cb':
+                ll = CB(probs=x_mu).log_prob(x).sum(-1).sum(-1).sum(-1)
         elif z.dim() == 3:
             S, B, D = z.shape
             x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[..., None, None]))
             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
-            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+            if self.likelihood == 'gaussian':
+                ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+            elif self.likelihood == 'cb':
+                ll = CB(probs=x_mu).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
         assert ll.shape == log_p_z.shape
         return ll + log_p_z, x_mu
-    
-class Generator_VERA_GAN_GMM(Generator_VERA_GAN):
-    def __init__(self, optimize_prior, num_clusters, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
-        super().__init__(device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=reparameterized)
-
-        self.prior_means = 0.31 * torch.randn((num_clusters, self.latent_dim), device=device)
-        self.prior_log_stds = (5*torch.rand((num_clusters, self.latent_dim), device=device) + 1.0).log()
-        if optimize_prior:
-            self.prior_means = nn.Parameter(self.prior_means)
-            self.prior_log_stds = nn.Parameter(self.prior_log_stds)
-        self.prior_pi = torch.ones(num_clusters, device=self.device) / num_clusters
-    
-    def sample(self, batch_size):
-        y = cat(probs=self.prior_pi).sample((batch_size,)).argmax(-1)
-        p = Normal(self.prior_means[y], self.prior_log_stds[y].exp())
-        z0 = p.rsample() if self.reparameterized else p.sample()
-        xr_mu = self.last_act(self.gen_net(z0[..., None, None]))
-        xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
-        return z0, xr, xr_mu
-    
-    def log_joint(self, x, z):
-
-        log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
+        
+    def ll(self, x, z):
         if z.dim() == 2:
-            p_dist = dists.Normal(self.prior_means[:, None, :], 
-                              self.prior_log_stds.exp()[:, None, :])
-            log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
             x_mu = self.last_act(self.gen_net(z[..., None, None]))
-            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+            if self.likelihood == 'gaussian':
+                ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+            elif self.likelihood == 'cb':
+                ll = CB(probs=x_mu).log_prob(x).sum(-1).sum(-1).sum(-1)      
         elif z.dim() == 3:
             S, B, D = z.shape
-            p_dist = dists.Normal(self.prior_means[:, None, None, :], 
-                              self.prior_log_stds.exp()[:, None, None, :])
-            log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
             x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[..., None, None]))
             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
-            ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
-        assert ll.shape == log_p_z.shape
-        return ll + log_p_z, x_mu
+            if self.likelihood == 'gaussian':
+                ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+            elif self.likelihood == 'cb':
+                ll = CB(probs=x_mu).log_prob(x[None]).sum(-1).sum(-1).sum(-1)                
+        return ll
+                
+# class Generator_VERA_GAN_GMM(Generator_VERA_GAN):
+#     def __init__(self, optimize_prior, num_clusters, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
+#         super().__init__(device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=reparameterized)
+
+#         self.prior_means = 0.31 * torch.randn((num_clusters, self.latent_dim), device=device)
+#         self.prior_log_stds = (5*torch.rand((num_clusters, self.latent_dim), device=device) + 1.0).log()
+#         if optimize_prior:
+#             self.prior_means = nn.Parameter(self.prior_means)
+#             self.prior_log_stds = nn.Parameter(self.prior_log_stds)
+#         self.prior_pi = torch.ones(num_clusters, device=self.device) / num_clusters
+    
+#     def sample(self, batch_size):
+#         y = cat(probs=self.prior_pi).sample((batch_size,)).argmax(-1)
+#         p = Normal(self.prior_means[y], self.prior_log_stds[y].exp())
+#         z0 = p.rsample() if self.reparameterized else p.sample()
+#         xr_mu = self.last_act(self.gen_net(z0[..., None, None]))
+#         xr = xr_mu + torch.randn_like(xr_mu) * self.x_logsigma.exp()
+#         return z0, xr, xr_mu
+    
+#     def log_joint(self, x, z):
+
+#         log_p_z = Normal(self.prior_mean, self.prior_log_std.exp()).log_prob(z).sum(-1)
+#         if z.dim() == 2:
+#             p_dist = dists.Normal(self.prior_means[:, None, :], 
+#                               self.prior_log_stds.exp()[:, None, :])
+#             log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
+#             x_mu = self.last_act(self.gen_net(z[..., None, None]))
+#             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x).sum(-1).sum(-1).sum(-1)
+#         elif z.dim() == 3:
+#             S, B, D = z.shape
+#             p_dist = dists.Normal(self.prior_means[:, None, None, :], 
+#                               self.prior_log_stds.exp()[:, None, None, :])
+#             log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
+#             x_mu = self.last_act(self.gen_net(z.view(S*B, -1)[..., None, None]))
+#             x_mu = x_mu.view(S, B, *x_mu.shape[1:])
+#             ll =  Normal(x_mu, self.x_logsigma.exp()).log_prob(x[None]).sum(-1).sum(-1).sum(-1)
+#         assert ll.shape == log_p_z.shape
+#         return ll + log_p_z, x_mu
     
 # class Generator_VERA_Gaussian(Generator):
 #     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):

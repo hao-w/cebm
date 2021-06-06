@@ -46,6 +46,8 @@ def create_exp_name(args):
     
     elif args.model_name in ['CEBM_VERA', 'CEBM_GMM_VERA', 'IGEBM_VERA']:
         exp_name = '%s_d=%s_z=%s_lamb=%s' % (args.model_name, args.data, args.latent_dim, args.lambda_ent)
+        if args.likelihood == 'cb':
+            exp_name += '_cb'
     else:
         raise ValueError
         

@@ -38,6 +38,7 @@ class Train_EBM_VERA(Trainer):
         self.min_x_logsgima = math.log(args.min_x_logsigma)
         self.max_x_logsigma = math.log(args.max_x_logsigma)
         self.warmup_iters = args.warmup_iters
+        self.likelihood = args.likelihood
         
     def train_epoch(self, epoch):
         ebm = self.models['ebm']
@@ -74,8 +75,9 @@ class Train_EBM_VERA(Trainer):
             loss_gen.backward()
 #             breakpoint()
             self.gen_optimizer.step()
-            
-            self.models['gen'].x_logsigma.data.clamp_(min=self.min_x_logsgima, max=self.max_x_logsigma)
+    
+            if self.likelihood == 'gaussian':
+                self.models['gen'].x_logsigma.data.clamp_(min=self.min_x_logsgima, max=self.max_x_logsigma)
 
             self.e_lr_scheduler.step()
             self.g_lr_scheduler.step()
@@ -88,13 +90,18 @@ class Train_EBM_VERA(Trainer):
     def loss_gen(self, z0, x_given_z0, metric_epoch):
         E_model = self.models['ebm'].energy(x_given_z0)
         z, log_xee = self.models['xee'].sample(z0=z0, sample_size=self.sample_size, detach_sigma=True)
-#         xee_dist = Normal(z0, self.models['xee_logsigma'].detach().exp())
-#         z = xee_dist.rsample((self.sample_size, ))
-#         log_xee = xee_dist.log_prob(z).sum(-1)
         log_joint, x_mu_given_z = self.models['gen'].log_joint(x=x_given_z0, z=z)
+            
+        if self.likelihood == 'gaussian':
+            neg_grad_log_q_x_given_z = (x_given_z0[None] - x_mu_given_z) / (self.models['gen'].x_logsigma.exp() ** 2)
+            
+        elif self.likelihood == 'cb':
+            x_expand = x_given_z0.detach().expand(self.sample_size, *x_given_z0.shape).requires_grad_()
+            neg_grad_log_q_x_given_z = torch.autograd.grad(self.models['gen'].ll(x=x_expand, z=z.detach()).sum(), 
+                                                            x_expand)[0]
+            
         assert log_xee.shape == log_joint.shape
-        w = torch.nn.functional.softmax(log_joint - log_xee, dim=0).detach()
-        neg_grad_log_q_x_given_z = (x_given_z0[None] - x_mu_given_z) / (self.models['gen'].x_logsigma.exp() ** 2)
+        w = torch.nn.functional.softmax(log_joint - log_xee, dim=0).detach()   
         neg_grad_log_q_x = (w[:, :, None, None, None] * neg_grad_log_q_x_given_z).sum(0).detach()
         assert neg_grad_log_q_x.shape == x_given_z0.shape
         grad_entropy = (neg_grad_log_q_x * x_given_z0).flatten(start_dim=1).sum(1).mean(0)
@@ -142,7 +149,8 @@ def main(args):
                     'num_shots': -1,
                     'batch_size': args.batch_size,
                     'train': True, 
-                    'normalize': True}
+                    'normalize': True if args.likelihood=="gaussian" else False}
+    
     train_loader, im_h, im_w, im_channels = setup_data_loader(**dataset_args)
     
     network_args = {'device': device,
@@ -164,6 +172,8 @@ def main(args):
                     'gen_strides': eval(args.gen_strides), 
                     'gen_paddings': eval(args.gen_paddings),
                     'gen_activation': args.gen_activation,
+                    'output_arch': args.output_arch,
+                    'likelihood': args.likelihood,
                    }
     
     model_args = {'optimize_ib': args.optimize_ib,
@@ -210,6 +220,7 @@ def parse_args():
     parser.add_argument('--max_x_logsigma', default=0.3, type=float)
     parser.add_argument('--min_x_logsigma', default=0.01, type=float)
     ## arch config 
+    parser.add_argument('--output_arch', default='mlp')
     parser.add_argument('--channels', default="[32,32,64,64]")
     parser.add_argument('--kernels', default="[3,4,4,4]")
     parser.add_argument('--strides', default="[1,2,2,2]")
@@ -224,6 +235,7 @@ def parse_args():
     parser.add_argument('--gen_strides', default="[1,2,2,2,2]")
     parser.add_argument('--gen_paddings', default="[1,1,1,1,1]")  
     parser.add_argument('--gen_activation', default='ReLU')
+    parser.add_argument('--likelihood', default='gaussian', choices=['gaussian', 'cb'])
     
     parser.add_argument('--num_clusters', default=20, type=int)
     ## training config
