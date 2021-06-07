@@ -48,6 +48,8 @@ def create_exp_name(args):
         exp_name = '%s_d=%s_z=%s_lamb=%s' % (args.model_name, args.data, args.latent_dim, args.lambda_ent)
         if args.likelihood == 'cb':
             exp_name += '_cb'
+        if args.optimize_ib:
+            exp_name += '_learn-ib'
     else:
         raise ValueError
         
