@@ -33,6 +33,7 @@ class CEBM(nn.Module):
             self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
             self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
             self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
+            self.softplus = nn.Softplus()
             
     def forward(self, x):
         h = self.mlp_net(self.flatten(self.conv_net(x)))
