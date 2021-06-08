@@ -17,7 +17,6 @@ class Train_EBM(Trainer):
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
         else:
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
-#         self.metric_names = ['E_div', 'E_data', 'E_model']
         self.metric_names = ['E_div', 'E_data', 'E_model']
 
     def train_epoch(self, epoch):
@@ -45,7 +44,7 @@ class Train_EBM(Trainer):
         E_model = ebm.energy(simulated_images)
         z_mu, z_sigma = ebm.latent_params(data_images)
         E_div = E_data.mean() - E_model.mean() 
-        loss = E_div + self.regularize_coeff * (E_data**2 + E_model**2).mean()
+        loss = E_div + self.regularize_coeff * (E_data**2).mean()
         metric_epoch['E_div'] += E_div.detach()
         metric_epoch['E_data'] += E_data.mean().detach()
         metric_epoch['E_model'] += E_model.mean().detach()
@@ -95,7 +94,9 @@ def main(args):
                     'paddings': eval(args.paddings),
                     'hidden_dims': eval(args.hidden_dims),
                     'latent_dim': args.latent_dim,
-                    'activation': args.activation}
+                    'activation': args.activation,
+                    'arch': args.arch,
+                   }
     
     model_args = {'optimize_ib': args.optimize_ib,
                   'num_clusters': args.num_clusters}
@@ -145,20 +146,22 @@ def parse_args():
     parser.add_argument('--kernels', default="[3,4,4,4]")
     parser.add_argument('--strides', default="[1,2,2,2]")
     parser.add_argument('--paddings', default="[1,1,1,1]")
-    parser.add_argument('--hidden_dims', default="[128]")
+    parser.add_argument('--hidden_dims', default="[256]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='Swish')
     parser.add_argument('--leak_slope', default=0.1, type=float, help='parameter for LeakyReLU activation')
     parser.add_argument('--num_clusters', default=20, type=int)
+    parser.add_argument('--arch', default='4cnn', choices=['simplenet', '4cnn'])
     ## training config
     parser.add_argument('--num_epochs', default=150, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
+
     ## sgld sampler config
     parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--reuse_freq', default=0.95, type=float)
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
-    parser.add_argument('--sgld_steps', default=60, type=int)
+    parser.add_argument('--sgld_steps', default=40, type=int)
     parser.add_argument('--regularize_coeff', default=1e-1, type=float)   
     
     return parser.parse_args()

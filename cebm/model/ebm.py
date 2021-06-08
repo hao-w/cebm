@@ -14,35 +14,36 @@ class CEBM(nn.Module):
     """
     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
         super().__init__()
-#         self.output_arch = kwargs['output_arch']
+        self.arch = kwargs['arch']
         self.device = device
         self.flatten = nn.Flatten()
-#         if self.output_arch == 'wresnet':
-#             self.conv_net = Wide_Residual_Net(depth=28, width=10)
-#             cnn_output_dim = self.conv_net.flatten_output_dim
-#             self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
-#             self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
-#             self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
+        if self.arch == 'simplenet':
+            self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
+            out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+            cnn_output_dim = out_h * out_w * channels[-1]
+            self.nss1_net = nn.Linear(cnn_output_dim, latent_dim)
+            self.nss2_net = nn.Linear(cnn_output_dim, latent_dim)
+            self.mlp_net = nn.Identity()
+            
         
-#         elif self.output_arch == 'mlp':     
-        self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
-        out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
-        cnn_output_dim = out_h * out_w * channels[-1]
-        self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
-        self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
-        self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
-        self.softplus = nn.Softplus()
+        elif self.arch == '4cnn':     
+            self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
+            out_h, out_w = cnn_output_shape(im_height, im_width, kernels, strides, paddings)
+            cnn_output_dim = out_h * out_w * channels[-1]
+            self.mlp_net = mlp_block(cnn_output_dim, hidden_dims, activation, **kwargs)
+            self.nss1_net = nn.Linear(hidden_dims[-1], latent_dim)
+            self.nss2_net = nn.Linear(hidden_dims[-1], latent_dim)
             
     def forward(self, x):
         h = self.mlp_net(self.flatten(self.conv_net(x)))
+#         nss1 = self.nss1_net(h) 
+#         nss2 = self.nss2_net(h)
+#         return nss1, -nss2**2
         mu = self.nss1_net(h)
         tau = self.softplus(self.nss2_net(h))
         nss1 = mu * tau
         nss2 = - tau / 2
         return nss1, nss2
-#         nss1 = self.nss1_net(h) 
-#         nss2 = self.nss2_net(h)
-#         return nss1, -nss2**2
 
     def log_partition(self, nat1, nat2):
         """

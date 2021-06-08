@@ -27,10 +27,10 @@ def create_exp_name(args):
             exp_name+= '_learn-prior'
     # EBMs 
     elif args.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
-        exp_name = '%s_d=%s_z=%s_lr=%s_act=%s_sgld_s=%s_n=%s_a=%s_dn=%s_reg=%s_seed=%d' % \
+        exp_name = '%s_d=%s_z=%s_lr=%s_act=%s_sgld_s=%s_n=%s_a=%s_dn=%s_reg=%s_seed=%d_arch=%s' % \
                     (args.model_name, args.data, args.latent_dim, args.lr, args.activation,
                      args.sgld_steps, args.sgld_noise_std, args.sgld_alpha, args.image_noise_std, 
-                     args.regularize_coeff, args.seed)
+                     args.regularize_coeff, args.seed, args.arch)
         if args.model_name == 'CEBM_GMM':
             exp_name += '_K=%d' % args.num_clusters
         if args.optimize_ib:
