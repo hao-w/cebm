@@ -48,7 +48,7 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
     if data == 'mnist':
         dataset = datasets.MNIST(dataset_path, train=train, transform=transform, download=True)
     elif data == 'fmnist':
-        dataset = datasets.FashionMNIST(dataset_path, train=train, transform=transform, download=True)
+        dataset = datasets.fmnist(dataset_path, train=train, transform=transform, download=True)
     elif data == 'emnist':
         dataset = datasets.EMNIST(dataset_path, split='digits', train=train, transform=transform, download=True)
     elif data == 'cifar10':
@@ -59,7 +59,7 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
             extra_part = datasets.SVHN(dataset_path, split='extra', transform=transform, download=True)
             dataset = ConcatDataset([train_part, extra_part])
         else:
-            dataset = datasets.SVHN(data_path, split='test', transform=transform, download=True)
+            dataset = datasets.SVHN(dataset_path, split='test', transform=transform, download=True)
     elif data == 'celeba':
         dataset = datasets.CelebA(dataset_path, split='train', transform=transform, download=True, target_type='attr')
     elif data == 'texture':
@@ -87,12 +87,14 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
         raise NotImplementError
     
     if num_shots != -1:
-        torch.manual_seed(seed)   
+        torch.manual_seed(shot_random_seed)   
         if data == 'svhn':
-            dataset = dataset.datasets[0]
+            if train:
+                dataset = dataset.datasets[0]
             labels = dataset.labels
         else:
             labels = dataset.targets
+        labels = torch.tensor(labels)
         num_classes = len(torch.unique(labels))
         for k in range(num_classes):
             indk = torch.where(labels == k)[0]

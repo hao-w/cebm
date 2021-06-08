@@ -53,7 +53,7 @@ class SGLD_Sampler():
         list_samples = []
         for l in range(num_steps):
             samples.requires_grad = True
-            grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
+            grads = torch.autograd.grad(outputs=ebm.energy(samples.tanh()).sum(), inputs=samples)[0]
             samples = (samples - (self.alpha / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
             #added this extra detachment step, becase the last update keeps the variable in the graph.
             samples = samples.detach() 
