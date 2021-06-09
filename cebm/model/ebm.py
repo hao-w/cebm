@@ -37,8 +37,8 @@ class CEBM(nn.Module):
             
     def forward(self, x):
         h = self.mlp_net(self.flatten(self.conv_net(x)))
-#         nss1 = self.nss1_net(h) 
-#         nss2 = self.nss2_net(h)
+        nss1 = self.nss1_net(h) 
+        nss2 = self.nss2_net(h)
 #         return nss1, -nss2**2
         mu = self.nss1_net(h)
         tau = self.softplus(self.nss2_net(h))
