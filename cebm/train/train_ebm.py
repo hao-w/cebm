@@ -7,12 +7,13 @@ from cebm.train.trainer import Trainer
 from torch.distributions.normal import Normal
 
 class Train_EBM(Trainer):
-    def __init__(self, models, train_loader, num_epochs, device, exp_name, sgld_sampler, optimizer, lr, sgld_steps, image_noise_std, regularize_coeff):
+    def __init__(self, models, train_loader, num_epochs, device, exp_name, sgld_sampler, optimizer, lr, sgld_steps, image_noise_std, regularize_coeff, lamb_ll):
         super().__init__(models, train_loader, num_epochs, device, exp_name)
         self.sgld_sampler = sgld_sampler 
         self.sgld_steps = sgld_steps
         self.image_noise_std = image_noise_std 
         self.regularize_coeff = regularize_coeff
+        self.lamb_ll = lamb_ll
         if optimizer == 'Adam':
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
         else:
@@ -60,7 +61,7 @@ class Train_EBM(Trainer):
         post_mu, post_std = ebm.latent_params(data_images)
         z = post_mu + torch.randn_like(post_mu) * post_std
         ll = ebm.log_factor(data_images, z)
-        loss -= ll.mean()
+        loss -= self.lamb_ll * ll.mean()
         metric_epoch['LF'] += ll.mean().detach()
         metric_epoch['E_div'] += E_div.detach()
         metric_epoch['E_data'] += E_data.mean().detach()
@@ -119,7 +120,8 @@ def main(args):
                     'lr': args.lr,
                     'sgld_steps': args.sgld_steps,
                     'image_noise_std': args.image_noise_std,
-                    'regularize_coeff': args.regularize_coeff}
+                    'regularize_coeff': args.regularize_coeff,
+                    'lamb_ll': args.lamb_ll}
     trainer = Train_EBM(**trainer_args)
     trainer.train()
     
@@ -160,6 +162,7 @@ def parse_args():
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
     parser.add_argument('--sgld_steps', default=60, type=int)
     parser.add_argument('--regularize_coeff', default=1e-1, type=float)   
+    parser.add_argument('--lamb_ll', default=0.1, type=float)
     
     return parser.parse_args()
 
