@@ -23,4 +23,5 @@ python3 train_ebm.py --data=svhn \
                      --paddings=[1,1,1,1] \
                      --hidden_dims=[1024] \
                      --device=$device \
-                     --sgld_steps=$sgld_steps
+                     --sgld_steps=$sgld_steps \
+                     --num_epochs=15
