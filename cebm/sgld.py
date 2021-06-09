@@ -56,7 +56,6 @@ class SGLD_Sampler():
             grads = torch.autograd.grad(outputs=ebm.energy(samples).sum(), inputs=samples)[0]
             samples = (samples - (self.alpha / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
             #added this extra detachment step, becase the last update keeps the variable in the graph.
-            samples = samples.detach() 
         assert samples.requires_grad == False, "samples should not require gradient."
         if pcd:
             self.refine_buffer(samples.detach(), inds)
@@ -81,7 +80,6 @@ class SGLD_Sampler():
             grads = torch.autograd.grad(outputs=ebm.log_factor(samples, z).sum(), inputs=samples)[0]
             samples = (samples - (self.alpha / 2) * grads + self.noise_std * torch.randn_like(grads)).detach()
             #added this extra detachment step, becase the last update keeps the variable in the graph.
-            samples = samples.detach() 
         assert samples.requires_grad == False, "samples should not require gradient."
         if pcd:
             self.refine_buffer(samples.detach(), inds)
