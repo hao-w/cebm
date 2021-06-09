@@ -43,7 +43,7 @@ class CEBM(nn.Module):
         mu = self.nss1_net(h)
         tau = self.softplus(self.nss2_net(h))
         nss1 = mu * tau
-        nss2 = - tau / 2
+        nss2 = - tau / 2 + 0.5
         return nss1, nss2
 
     def log_partition(self, nat1, nat2):
