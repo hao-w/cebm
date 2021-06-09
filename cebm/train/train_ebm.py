@@ -35,14 +35,13 @@ class Train_EBM(Trainer):
         return {k: (v / (b+1)).item() for k, v in metric_epoch.items()}
 
     
-    def loss(self, ebm, data_images, metric_epoch, pcd=True, init_samples=None):
+    def loss(self, ebm, data_images, metric_epoch):
         """
         maximize the log marginal i.e. log pi(x) = log \sum_{k=1}^K p(x, y=k)
         """
         E_data = ebm.energy(data_images)
-        simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=pcd, init_samples=init_samples)
+        simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=True, init_samples=None)
         E_model = ebm.energy(simulated_images)
-        z_mu, z_sigma = ebm.latent_params(data_images)
         E_div = E_data.mean() - E_model.mean() 
         loss = E_div + self.regularize_coeff * ((E_data**2).mean() + (E_model**2).mean())
         metric_epoch['E_div'] += E_div.detach()
@@ -60,7 +59,7 @@ class Train_EBM(Trainer):
 #         data_lf = ebm.log_factor(data_images, data_z, expand_dim=None if sample_size==1 else sample_size)
 #         negative_images = self.sgld_sampler.cond_sample(ebm, data_z, len(data_images), self.sgld_steps, pcd=pcd)
 #         negative_lf = ebm.log_factor(negative_images, data_z, expand_dim=None if sample_size==1 else sample_size)
-#         loss = negative_lf.mean() - data_lf.mean() + self.regularize_coeff * (negative_lf**2 + data_lf**2).mean()
+#         loss = negative_lf.dmean() - data_lf.mean() + self.regularize_coeff * (negative_lf**2 + data_lf**2).mean()
 #         E_data = ebm.energy(data_images).mean().detach()
 #         E_model = ebm.energy(negative_images).mean().detach()
 #         metric_epoch['E_data'] += E_data
@@ -162,7 +161,7 @@ def parse_args():
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
     parser.add_argument('--sgld_steps', default=40, type=int)
-    parser.add_argument('--regularize_coeff', default=1e-1, type=float)   
+    parser.add_argument('--regularize_coeff', default=1e-2, type=float)   
     
     return parser.parse_args()
 
