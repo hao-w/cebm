@@ -26,7 +26,7 @@ class Train_EBM(Trainer):
         for b, (images, _) in enumerate(self.train_loader):
             self.optimizer.zero_grad() 
             images = (images + self.image_noise_std * torch.randn_like(images)).to(self.device)
-            loss, metric_epoch = self.loss2(ebm, images, metric_epoch)
+            loss, metric_epoch = self.loss(ebm, images, metric_epoch)
                 
             if loss.abs().item() > 1e+8:
                 print('EBM diverging. Terminate training..')
@@ -53,16 +53,20 @@ class Train_EBM(Trainer):
         return loss, metric_epoch
     
     def loss2(self, ebm, data_images, metric_epoch, pcd=True, sample_size=1):
+        """
+        Adding an ELBO on mutual information
+        """
         E_data = ebm.energy(data_images)
         simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=True, init_samples=None)
         E_model = ebm.energy(simulated_images)
         E_div = E_data.mean() - E_model.mean() 
         loss = E_div + self.regularize_coeff * ((E_data**2).mean() + (E_model**2).mean())
         post_mu, post_std = ebm.latent_params(data_images)
-        z = post_mu + torch.randn_like(post_mu) * post_std
-        ll = ebm.log_factor(data_images, z)
-        loss -= self.lamb_ll * ll.mean()
-        metric_epoch['LF'] += ll.mean().detach()
+        z = post_mu + torch.randn_like(post_std) * post_std
+        
+        elbo = torch.distributions.kl_divergence(posterior, prior).sum(-1).mean()
+        loss -= self.lamb_ll * elbo.mean()
+        metric_epoch['LF'] += elbo.mean().detach()
         metric_epoch['E_div'] += E_div.detach()
         metric_epoch['E_data'] += E_data.mean().detach()
         metric_epoch['E_model'] += E_model.mean().detach()
@@ -134,7 +138,7 @@ def parse_args():
     ## data config
     parser.add_argument('--data', required=True)
     parser.add_argument('--data_dir', default='../datasets/', type=str)
-    parser.add_argument('--image_noise_std', default=1e-2, type=float)
+    parser.add_argument('--image_noise_std', default=3e-2, type=float)
 
     ## optim config
     parser.add_argument('--optimizer', choices=['AdamW', 'Adam', 'SGD'], default='Adam', type=str)
