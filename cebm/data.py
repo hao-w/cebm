@@ -48,7 +48,7 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
     if data == 'mnist':
         dataset = datasets.MNIST(dataset_path, train=train, transform=transform, download=True)
     elif data == 'fmnist':
-        dataset = datasets.FMNIST(dataset_path, train=train, transform=transform, download=True)
+        dataset = datasets.FashionMNIST(dataset_path, train=train, transform=transform, download=True)
     elif data == 'emnist':
         dataset = datasets.EMNIST(dataset_path, split='digits', train=train, transform=transform, download=True)
     elif data == 'cifar10':
