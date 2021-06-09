@@ -61,7 +61,7 @@ class Train_EBM(Trainer):
         z = post_mu + torch.randn_like(post_mu) * post_std
         ll = ebm.log_factor(data_images, z)
         loss -= ll.mean()
-        metric['LF'] += ll.mean().detach()
+        metric_epoch['LF'] += ll.mean().detach()
         metric_epoch['E_div'] += E_div.detach()
         metric_epoch['E_data'] += E_data.mean().detach()
         metric_epoch['E_model'] += E_model.mean().detach()
