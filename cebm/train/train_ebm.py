@@ -17,15 +17,15 @@ class Train_EBM(Trainer):
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
         else:
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
-        self.metric_names = ['E_div', 'E_data', 'E_model']
+        self.metric_names = ['E_div', 'E_data', 'E_model', "LF"]
 
     def train_epoch(self, epoch):
         ebm = self.models['ebm']
         metric_epoch = dict.fromkeys(self.metric_names, 0.0)
         for b, (images, _) in enumerate(self.train_loader):
             self.optimizer.zero_grad() 
-            images = torch.clamp(images + self.image_noise_std * torch.randn_like(images), min=-1., max=1.).to(self.device)
-            loss, metric_epoch = self.loss(ebm, images, metric_epoch)
+            images = (images + self.image_noise_std * torch.randn_like(images)).to(self.device)
+            loss, metric_epoch = self.loss2(ebm, images, metric_epoch)
                 
             if loss.abs().item() > 1e+8:
                 print('EBM diverging. Terminate training..')
@@ -51,26 +51,21 @@ class Train_EBM(Trainer):
         metric_epoch['E_model'] += E_model.mean().detach()
         return loss, metric_epoch
     
-#     def loss2(self, ebm, data_images, metric_epoch, pcd=True, sample_size=1):
-#         post_mu, post_std = ebm.latent_params(data_images)
-#         p = Normal(post_mu, post_std)
-#         if sample_size == 1:
-#             data_z = p.sample() # B * D
-#         else:
-#             data_z = p.sample((sample_size,)) # S * B * D
-#         data_lf = ebm.log_factor(data_images, data_z, expand_dim=None if sample_size==1 else sample_size)
-#         negative_images = self.sgld_sampler.cond_sample(ebm, data_z, len(data_images), self.sgld_steps, pcd=pcd)
-#         negative_lf = ebm.log_factor(negative_images, data_z, expand_dim=None if sample_size==1 else sample_size)
-#         loss = negative_lf.dmean() - data_lf.mean() + self.regularize_coeff * (negative_lf**2 + data_lf**2).mean()
-#         E_data = ebm.energy(data_images).mean().detach()
-#         E_model = ebm.energy(negative_images).mean().detach()
-#         metric_epoch['E_data'] += E_data
-#         metric_epoch['E_model'] += E_model
-#         metric_epoch['E_div'] += E_data - E_model
-#         metric_epoch['LF_data'] += data_lf.mean().detach()
-#         metric_epoch['LF_model'] += negative_lf.mean().detach()
-# #         breakpoint()
-#         return loss, metric_epoch
+    def loss2(self, ebm, data_images, metric_epoch, pcd=True, sample_size=1):
+        E_data = ebm.energy(data_images)
+        simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=True, init_samples=None)
+        E_model = ebm.energy(simulated_images)
+        E_div = E_data.mean() - E_model.mean() 
+        loss = E_div + self.regularize_coeff * ((E_data**2).mean() + (E_model**2).mean())
+        post_mu, post_std = ebm.latent_params(data_images)
+        z = post_mu + torch.randn_like(post_mu) * post_std
+        ll = ebm.log_factor(data_images, z)
+        loss -= ll.mean()
+        metric['LF'] += ll.mean().detach()
+        metric_epoch['E_div'] += E_div.detach()
+        metric_epoch['E_data'] += E_data.mean().detach()
+        metric_epoch['E_model'] += E_model.mean().detach()
+        return loss, metric_epoch
     
 def main(args):
     set_seed(args.seed)
@@ -137,7 +132,8 @@ def parse_args():
     ## data config
     parser.add_argument('--data', required=True)
     parser.add_argument('--data_dir', default='../datasets/', type=str)
-    parser.add_argument('--image_noise_std', default=3e-2, type=float)
+    parser.add_argument('--image_noise_std', default=1e-2, type=float)
+
     ## optim config
     parser.add_argument('--optimizer', choices=['AdamW', 'Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=5e-5, type=float)
@@ -160,10 +156,10 @@ def parse_args():
     ## sgld sampler config
     parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--reuse_freq', default=0.95, type=float)
-    parser.add_argument('--sgld_noise_std', default=1e-2, type=float)
+    parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
     parser.add_argument('--sgld_steps', default=60, type=int)
-    parser.add_argument('--regularize_coeff', default=1e-3, type=float)   
+    parser.add_argument('--regularize_coeff', default=1e-1, type=float)   
     
     return parser.parse_args()
 
