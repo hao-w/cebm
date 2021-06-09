@@ -128,8 +128,8 @@ class CEBM_GMM(CEBM):
     def __init__(self, optimize_ib, num_clusters, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs):
         super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, **kwargs)
         #Suggested initialization
-        self.ib_means = 0.31 * torch.randn((num_clusters, latent_dim), device=self.device)
-        self.ib_log_stds = (5*torch.rand((num_clusters, latent_dim), device=self.device) + 1.0).log()
+        self.ib_means = torch.randn((num_clusters, latent_dim), device=self.device)
+        self.ib_log_stds = torch.ones((num_clusters, latent_dim), device=self.device).log()
         if optimize_ib:
             self.ib_means = nn.Parameter(self.ib_means)
             self.ib_log_stds = nn.Parameter(self.ib_log_stds)

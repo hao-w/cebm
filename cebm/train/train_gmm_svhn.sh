@@ -4,7 +4,8 @@ model=CEBM_GMM
 device=cuda:1
 sgld_steps=60
 lr=5e-5
-num_clusters=20
+num_clusters=10
+regularize_coeff=1e-3 
 
 python3 train_ebm.py --data=svhn \
                      --model_name=$model \
@@ -17,4 +18,5 @@ python3 train_ebm.py --data=svhn \
                      --sgld_steps=$sgld_steps \
                      --lr=$lr \
                      --num_clusters=$num_clusters \
-                     --optimize_ib
+                     --optimize_ib \
+                     --regularize_coeff=$regularize_coeff
