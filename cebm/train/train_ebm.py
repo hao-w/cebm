@@ -137,7 +137,7 @@ def parse_args():
     ## data config
     parser.add_argument('--data', required=True)
     parser.add_argument('--data_dir', default='../datasets/', type=str)
-    parser.add_argument('--image_noise_std', default=1e-2, type=float)
+    parser.add_argument('--image_noise_std', default=3e-2, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['AdamW', 'Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=5e-5, type=float)
@@ -160,10 +160,10 @@ def parse_args():
     ## sgld sampler config
     parser.add_argument('--buffer_size', default=5000, type=int)
     parser.add_argument('--reuse_freq', default=0.95, type=float)
-    parser.add_argument('--sgld_noise_std', default=5e-3, type=float)
+    parser.add_argument('--sgld_noise_std', default=1e-2, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
     parser.add_argument('--sgld_steps', default=60, type=int)
-    parser.add_argument('--regularize_coeff', default=1e-2, type=float)   
+    parser.add_argument('--regularize_coeff', default=1e-3, type=float)   
     
     return parser.parse_args()
 

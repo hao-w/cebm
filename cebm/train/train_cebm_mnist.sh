@@ -2,7 +2,6 @@
 
 model=CEBM
 device=cuda:1
-likelihood=gaussian
 sgld_steps=60
 lr=5e-5
 

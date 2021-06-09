@@ -1,8 +1,7 @@
 #!/bin/sh
 
 model=CEBM
-device=cuda:1
-likelihood=gaussian
+device=cuda:0
 sgld_steps=60
 lr=5e-5
 
