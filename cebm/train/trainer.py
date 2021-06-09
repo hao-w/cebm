@@ -25,6 +25,7 @@ class Trainer():
             pbar.set_postfix(ordered_dict=metric_epoch)
             self.logging(metric_epoch, epoch)
             save_models(self.models, self.exp_name)
+        
     
     #FIXME: hao will replace this function with tensorboard API later.
     def logging(self, metrics, epoch):
