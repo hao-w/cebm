@@ -18,7 +18,7 @@ class Train_EBM(Trainer):
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
         else:
             self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
-        self.metric_names = ['E_div', 'E_data', 'E_model', "LF"]
+        self.metric_names = ['E_div', 'E_data', 'E_model']
 
     def train_epoch(self, epoch):
         ebm = self.models['ebm']
