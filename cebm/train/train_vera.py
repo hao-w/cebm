@@ -150,7 +150,7 @@ def main(args):
                     'batch_size': args.batch_size,
                     'train': True, 
                     'normalize': True if args.likelihood=="gaussian" else False}
-    
+
     train_loader, im_h, im_w, im_channels = setup_data_loader(**dataset_args)
     
     network_args = {'device': device,

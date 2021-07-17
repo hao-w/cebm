@@ -39,12 +39,7 @@ class CEBM(nn.Module):
         h = self.mlp_net(self.flatten(self.conv_net(x)))
         nss1 = self.nss1_net(h) 
         nss2 = self.nss2_net(h)
-        nss2 = - self.softplus(nss2)
-        return nss1 / (nss2**2), nss2
-#         return nss1, -nss2**2
-#         nss1 = mu * tau
-#         nss2 = - tau / 2
-#         return nss1, nss2
+        return nss1, -nss2**2
 
     def log_partition(self, nat1, nat2):
         """
