@@ -1,7 +1,7 @@
 #!/bin/sh
 
 model=IGEBM_VERA
-device=cuda:0
+device=cuda:1
 likelihood=cb
 lambda_ent=1e-4
 
@@ -9,13 +9,15 @@ python3 train_vera.py --data=mnist \
                      --model_name=$model \
                      --device=$device \
                      --lr_xee=1e-3 \
-                     --likelihood=$likelihood
+                     --likelihood=$likelihood \
+                     --lambda_ent=$lambda_ent
 
 python3 train_vera.py --data=fmnist \
                      --model_name=$model \
                      --device=$device \
                      --lr_xee=1e-3 \
-                     --likelihood=$likelihood
+                     --likelihood=$likelihood \
+                     --lambda_ent=$lambda_ent
                      
 python3 train_vera.py --data=cifar10 \
                      --model_name=$model \
