@@ -5,6 +5,21 @@ In this paper, we propose conjugate energy-based models (CEBMs), a new class of 
 
 
 ### Training Instructions
-coming soon!
+To train CEBM, CEBM_GMM, or the baseline IGEBM no a specific dataset, run the training python script with the following command:
+
+```
+python cebm/train/train_ebm.py --model_name=<the model name> --seed=<random_seed> --data=<the dataset name>
+```
 
 
+To train the baselines VAE or VAE_GMM, run the training python script with the following command:
+
+  ```
+  python cebm/train/train_vae.py --model_name=<the model name> --seed=<random_seed> --data=<the dataset name>
+  ```
+
+To train the baselines BIGAN or BIGAN_GMM, run the training python script with the following command:
+
+  ```
+  python cebm/train/train_bigan.py --model_name=<the model name> --seed=<random_seed> --data=<the dataset name>
+  ```
