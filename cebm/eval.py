@@ -64,7 +64,7 @@ class Evaluator():
             self.sgld_sampler = kwargs['sgld_sampler']
         
     def latent_mode(self, images):
-        if self.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM', 'IGEBM_VERA', 'CEBM_VERA', 'CEBM_GMM_VERA']:
+        if self.model_name in ['IGEBM', 'CEBM', 'CEBM_GMM']:
             return self.models['ebm'].latent_params(images)
         elif self.model_name in ['VAE', 'VAE_GMM', 'BIGAN', 'BIGAN_GMM']:
             return self.models['enc'].latent_params(images)
@@ -100,41 +100,35 @@ class Evaluator():
         results = {'Num_Shots': [], 'Mean': [], 'Std': []}
         for num_shots in tqdm(list_num_shots):
             Accuracy = []
-            for i in range(num_runs):
+            for i in tqdm(range(num_runs)):
                 torch.cuda.empty_cache()
-                if num_shots == -1:
-                    train_loader, im_h, im_w, im_channels = setup_data_loader(data=self.data, 
-                                                                              data_dir=self.data_dir, 
-                                                                              num_shots=num_shots, 
-                                                                              batch_size=batch_size, 
-                                                                              train=True, 
-                                                                              normalize=False if self.model_name in ['VAE', 'VAE_GMM'] else True, 
-                                                                              shuffle=False, 
-                                                                              shot_random_seed=None if num_shots==-1 else i)
-                    zs_train, ys_train = self.encode_dataset(train_loader)
-                else:
-                    data = torch.load('/home/hao/Research/cebm/cebm/datasets/fewshots/%s/%d/%d.pt' % (self.data, num_shots*10, i+1))
-                    images = ((data['images'] - 0.5) / 0.5).to(self.device)
-                    zs_train, _ = self.models['ebm'].latent_params(images)
-                    zs_train = zs_train.cpu().detach().numpy()
-                    ys_train = data['labels'].numpy()
-                if classifier == 'logistic':
-                    clf = LogisticRegression(random_state=0, 
-                                             multi_class='auto', 
-                                             solver='liblinear', 
-                                             max_iter=10000).fit(zs_train, ys_train)
+                train_loader, im_h, im_w, im_channels = setup_data_loader(data=self.data, 
+                                                                          data_dir=self.data_dir, 
+                                                                          num_shots=num_shots, 
+                                                                          batch_size=batch_size, 
+                                                                          train=True, 
+                                                                          normalize=False if self.model_name in ['VAE', 'VAE_GMM'] else True, 
+                                                                          shuffle=False, 
+                                                                          shot_random_seed=None if num_shots==-1 else i)
+                zs_train, ys_train = self.encode_dataset(train_loader)
+                idx = (ys_train != -1)
+                zs_train_labelled = zs_train[idx]
+                ys_train_labelled = ys_train[idx]
+                clf = LogisticRegression(random_state=0, 
+                                         multi_class='auto', 
+                                         solver='liblinear', 
+                                         max_iter=10000).fit(zs_train_labelled, ys_train_labelled)
                     
-                else:
-                    raise NotImplementedError
+
                 torch.cuda.empty_cache()
                 test_loader, im_h, im_w, im_channels = setup_data_loader(data=self.data, 
                                                                          data_dir=self.data_dir, 
-                                                                         num_shots=num_shots, 
+                                                                         num_shots=-1, 
                                                                          batch_size=batch_size, 
                                                                          train=False, 
                                                                          normalize=False if self.model_name in ['VAE', 'VAE_GMM'] else True, 
                                                                          shuffle=False, 
-                                                                         shot_random_seed=None if num_shots==-1 else i)
+                                                                         shot_random_seed=None)
                 zs_test, ys_test = self.encode_dataset(test_loader)
                 Accuracy.append(np.array([clf.score(zs_test, ys_test)]))
                 #Only run it once when using the fulling training set
@@ -144,14 +138,5 @@ class Evaluator():
             results['Num_Shots'].append(num_shots)
             results['Mean'].append(Accuracy.mean())
             results['Std'].append(Accuracy.std())
-        pd.DataFrame.from_dict(results).to_csv('results/few_label/%s-%s-%s.csv' % (self.data, num_shots*10, i+1), index=False)
+        pd.DataFrame.from_dict(results).to_csv('results/few_label/{}-{}-runs={}.csv'.format(self.model_name, self.data, num_runs), index=False)
         return results
-#         print('clf=%s, model=%s, data=%s, num_shots=%d, mean=%.2f, std=%.2f' % (classifier, self.model_name, self.data)
-#         fout.close()
-    
-#     def train_logistic_classifier(zs, ys, ):
-#         accu = lr.score(zs_test, ys_test)
-#     #     print('mean accuray=%.4f' % accu)
-#         return accu
- 
-        

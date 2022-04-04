@@ -116,7 +116,7 @@ def parse_args():
     parser.add_argument('--exp_id', default=None)
     ## data config
     parser.add_argument('--data', required=True, choices=['mnist', 'cifar10', 'svhn', 'fashionmnist'])    
-    parser.add_argument('--data_dir', default='../datasets/', type=str)
+    parser.add_argument('--data_dir', default='../../data/', type=str)
     parser.add_argument('--image_noise_std', default=0.1, type=float)
     ## optim config
     parser.add_argument('--optimizer', choices=['AdamW', 'Adam', 'SGD'], default='Adam', type=str)

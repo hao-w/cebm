@@ -7,17 +7,13 @@ from cebm.train.trainer import Trainer
 from torch.distributions.normal import Normal
 
 class Train_EBM(Trainer):
-    def __init__(self, models, train_loader, num_epochs, device, exp_name, sgld_sampler, optimizer, lr, sgld_steps, image_noise_std, regularize_coeff, lamb_ll):
+    def __init__(self, models, train_loader, num_epochs, device, exp_name, sgld_sampler, lr, sgld_steps, image_noise_std, regularize_coeff):
         super().__init__(models, train_loader, num_epochs, device, exp_name)
         self.sgld_sampler = sgld_sampler 
         self.sgld_steps = sgld_steps
         self.image_noise_std = image_noise_std 
         self.regularize_coeff = regularize_coeff
-        self.lamb_ll = lamb_ll
-        if optimizer == 'Adam':
-            self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
-        else:
-            self.optimizer = getattr(torch.optim, optimizer)(list(self.models['ebm'].parameters()), lr=lr)
+        self.optimizer = torch.optim.Adam(list(self.models['ebm'].parameters()), lr=lr)
         self.metric_names = ['E_div', 'E_data', 'E_model']
 
     def train_epoch(self, epoch):
@@ -52,25 +48,6 @@ class Train_EBM(Trainer):
         metric_epoch['E_model'] += E_model.mean().detach()
         return loss, metric_epoch
     
-    def loss2(self, ebm, data_images, metric_epoch, pcd=True, sample_size=1):
-        """
-        Adding an ELBO on mutual information
-        """
-        E_data = ebm.energy(data_images)
-        simulated_images = self.sgld_sampler.sample(ebm, len(data_images), self.sgld_steps, pcd=True, init_samples=None)
-        E_model = ebm.energy(simulated_images)
-        E_div = E_data.mean() - E_model.mean() 
-        loss = E_div + self.regularize_coeff * ((E_data**2).mean() + (E_model**2).mean())
-        post_mu, post_std = ebm.latent_params(data_images)
-        z = post_mu + torch.randn_like(post_std) * post_std
-        
-        elbo = torch.distributions.kl_divergence(posterior, prior).sum(-1).mean()
-        loss -= self.lamb_ll * elbo.mean()
-        metric_epoch['LF'] += elbo.mean().detach()
-        metric_epoch['E_div'] += E_div.detach()
-        metric_epoch['E_data'] += E_data.mean().detach()
-        metric_epoch['E_model'] += E_model.mean().detach()
-        return loss, metric_epoch
     
 def main(args):
     set_seed(args.seed)
@@ -96,7 +73,6 @@ def main(args):
                     'hidden_dims': eval(args.hidden_dims),
                     'latent_dim': args.latent_dim,
                     'activation': args.activation,
-                    'arch': args.arch,
                    }
     
     model_args = {'optimize_ib': args.optimize_ib,
@@ -120,12 +96,11 @@ def main(args):
                     'device': device,
                     'exp_name': exp_name,
                     'sgld_sampler': SGLD_Sampler(**sgld_args),
-                    'optimizer': args.optimizer,
                     'lr': args.lr,
                     'sgld_steps': args.sgld_steps,
                     'image_noise_std': args.image_noise_std,
                     'regularize_coeff': args.regularize_coeff,
-                    'lamb_ll': args.lamb_ll}
+                   }
     trainer = Train_EBM(**trainer_args)
     trainer.train()
     
@@ -133,15 +108,14 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', choices=['CEBM', 'CEBM_GMM', 'IGEBM'])
     parser.add_argument('--seed', default=1, type=int)
-    parser.add_argument('--device', default='cuda:1', type=str)
+    parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--exp_id', default=None)
     ## data config
-    parser.add_argument('--data', required=True)
-    parser.add_argument('--data_dir', default='../datasets/', type=str)
+    parser.add_argument('--data', required=True, choices=['mnist', 'fashionmnist', 'svhn', 'cifar10'])
+    parser.add_argument('--data_dir', default='../../data/', type=str)
     parser.add_argument('--image_noise_std', default=3e-2, type=float)
 
     ## optim config
-    parser.add_argument('--optimizer', choices=['AdamW', 'Adam', 'SGD'], default='Adam', type=str)
     parser.add_argument('--lr', default=5e-5, type=float)
     parser.add_argument('--optimize_ib', default=False, action='store_true')
     ## arch config 
@@ -152,9 +126,7 @@ def parse_args():
     parser.add_argument('--hidden_dims', default="[256]")
     parser.add_argument('--latent_dim', default=128, type=int)
     parser.add_argument('--activation', default='SiLU')
-    parser.add_argument('--leak_slope', default=0.1, type=float, help='parameter for LeakyReLU activation')
     parser.add_argument('--num_clusters', default=20, type=int)
-    parser.add_argument('--arch', default='4cnn', choices=['simplenet', '4cnn'])
     ## training config
     parser.add_argument('--num_epochs', default=150, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
@@ -165,8 +137,7 @@ def parse_args():
     parser.add_argument('--sgld_noise_std', default=7.5e-3, type=float)
     parser.add_argument('--sgld_alpha', default=2.0, type=float, help='step size is half of this value')
     parser.add_argument('--sgld_steps', default=60, type=int)
-    parser.add_argument('--regularize_coeff', default=1e-1, type=float)   
-    parser.add_argument('--lamb_ll', default=0.1, type=float)
+    parser.add_argument('--regularize_coeff', default=5e-3, type=float)   
     
     return parser.parse_args()
 

@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, TensorDataset, DataLoader, ConcatDataset
     
 def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, shuffle=True, shot_random_seed=None):
     """
-    return a dataloader 
+    This method constructs a dataloader for several commonly-used image datasets
     argument:
         data: name of the dataset
         data_dir: path of the dataset
@@ -28,11 +28,8 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
         normalize: if True, rescale the pixel values to [-1, 1]
         shot_random_seed: the random seed used when num_shot != -1
     """
-    dataset_path = os.path.join(data_dir, data)
-    if not os.path.exists(dataset_path):
-        os.makedirs(dataset_path)
         
-    if data in ['mnist', 'fmnist', 'emnist', 'constant_grayscale', 'omniglot']:
+    if data in ['mnist', 'fashionmnist', 'emnist', 'constant_grayscale']:
         img_h, img_w, n_channels = 28, 28, 1
         transform = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize((0.5,), (0.5,))])
@@ -46,43 +43,44 @@ def setup_data_loader(data, data_dir, num_shots, batch_size, train, normalize, s
         del transform.transforms[-1] # should not normalize for VAEs
 
     if data == 'mnist':
-        dataset = datasets.MNIST(dataset_path, train=train, transform=transform, download=True)
-    elif data == 'fmnist':
-        dataset = datasets.FashionMNIST(dataset_path, train=train, transform=transform, download=True)
+        dataset = datasets.MNIST(data_dir, train=train, transform=transform, download=True)
+    elif data == 'fashionmnist':
+        dataset = datasets.FashionMNIST(data_dir, train=train, transform=transform, download=True)
     elif data == 'emnist':
-        dataset = datasets.EMNIST(dataset_path, split='digits', train=train, transform=transform, download=True)
+        dataset = datasets.EMNIST(data_dir, split='digits', train=train, transform=transform, download=True)
     elif data == 'cifar10':
-        dataset = datasets.CIFAR10(dataset_path, train=train, transform=transform, download=True)
+        data_dir = join(data_dir, 'CIFAR10')
+        dataset = datasets.CIFAR10(data_dir, train=train, transform=transform, download=True)
     elif data == 'svhn':
+        data_dir = join(data_dir, 'SVHN')
         if train:
-            train_part = datasets.SVHN(dataset_path, split='train', transform=transform, download=True)
-            extra_part = datasets.SVHN(dataset_path, split='extra', transform=transform, download=True)
+            train_part = datasets.SVHN(data_dir, split='train', transform=transform, download=True)
+            extra_part = datasets.SVHN(data_dir, split='extra', transform=transform, download=True)
             dataset = ConcatDataset([train_part, extra_part])
         else:
-            dataset = datasets.SVHN(dataset_path, split='test', transform=transform, download=True)
-    elif data == 'celeba':
-        dataset = datasets.CelebA(dataset_path, split='train', transform=transform, download=True, target_type='attr')
+            dataset = datasets.SVHN(data_dir, split='test', transform=transform, download=True)
     elif data == 'texture':
+        data_dir = join(data_dir, 'texture')
         try:
-            dataset = datasets.ImageFolder(root=dataset_path+'/dtd/images/', transform=transform)
+            dataset = datasets.ImageFolder(root=dataset_dir+'/dtd/images/', transform=transform)
         except:
             import requests
             import tarfile
             url = 'https://www.robots.ox.ac.uk/~vgg/data/dtd/download/dtd-r1.0.1.tar.gz'
             r = requests.get(url)
-            with open(dataset_path + '/dtd-r1.0.1.tar.gz', 'wb') as f:
+            with open(data_dir + '/dtd-r1.0.1.tar.gz', 'wb') as f:
                 f.write(r.content)
             f.close()
-            my_tar = tarfile.open(dataset_path + '/dtd-r1.0.1.tar.gz')
-            my_tar.extractall(dataset_path)
+            my_tar = tarfile.open(data_dir + '/dtd-r1.0.1.tar.gz')
+            my_tar.extractall(data_dir)
             my_tar.close()
-            dataset = datasets.ImageFolder(root=dataset_path+'/dtd/images/', transform=transform)
+            dataset = datasets.ImageFolder(root=data_dir+'/dtd/images/', transform=transform)
     elif data == 'constant_rgb':
-        dataset = Constant(color_mode='rgb', root=dataset_path, transform=transform)
+        data_dir = join(data_dir, 'constant_rgb')
+        dataset = Constant(color_mode='rgb', root=data_dir, transform=transform)
     elif data == 'constant_grayscale':
-        dataset = Constant(color_mode='grayscale', root=dataset_path, transform=transform)
-    elif data == 'omniglot':
-        dataset = Omniglot_Concat(root=dataset_path, train=train, download=True, transform=transform)
+        data_dir = join(data_dir, 'constant_grayscale')
+        dataset = Constant(color_mode='grayscale', root=data_dir, transform=transform)
     else:
         raise NotImplementError
     
@@ -136,5 +134,5 @@ class Constant(VisionDataset):
         return img, int(-1)
 
     def __len__(self):
+
         return len(self.data)
-    
