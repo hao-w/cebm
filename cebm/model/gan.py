@@ -4,10 +4,13 @@ from torch.distributions.normal import Normal
 from torch.distributions.one_hot_categorical import OneHotCategorical as cat
 from cebm.net import cnn_block, deconv_block, mlp_block, cnn_output_shape
 
+"""
+The implementation of the baseline BIGAN based on the paper: https://arxiv.org/abs/1605.09782
 
+"""
 class Generator_BIGAN(nn.Module):
     """
-    A generator in BIGAN with a Gaussian prior on noise
+    The generator in BIGAN with a Gaussian prior on noise
     """
     def __init__(self, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
         super().__init__()
@@ -23,6 +26,9 @@ class Generator_BIGAN(nn.Module):
         return z, x
     
 class Generator_BIGAN_GMM(Generator_BIGAN):
+    """
+    The generator in BIGAN with a mixture of Gaussians prior on noise
+    """
     def __init__(self, optimize_prior, num_clusters, device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=True, **kwargs):
         super().__init__(device, gen_channels, gen_kernels, gen_strides, gen_paddings, latent_dim, gen_activation, reparameterized=reparameterized)
 
@@ -42,6 +48,9 @@ class Generator_BIGAN_GMM(Generator_BIGAN):
 
     
 class Discriminator_BIGAN(nn.Module):
+    """
+    The discriminator in BIGAN
+    """
     def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, leak_slope=0.2, dropout_prob=0.2, **kwargs):
         super().__init__()
         self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=True, leak_slope=leak_slope, dropout_prob=dropout_prob)
@@ -60,6 +69,9 @@ class Discriminator_BIGAN(nn.Module):
     
     
 class Encoder_BIGAN(nn.Module):
+    """
+    The encoder in BIGAN
+    """
     def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, reparameterized=True, leak_slope=0.2, **kwargs):
         super().__init__()
         self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=True, leak_slope=0.2)

@@ -63,8 +63,7 @@ def main(args):
                   'num_clusters': args.num_clusters}
     
     models = init_models(args.model_name, device, model_args, network_args)
-    for k, v in models.items():
-        print(v)
+
     exp_name = create_exp_name(args)
     
     trainer_args = {'models': models,

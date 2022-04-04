@@ -6,6 +6,9 @@ from cebm.net import Swish, Reshape, cnn_block, deconv_block, mlp_block, cnn_out
 import torch.distributions as dists
 
 class Decoder(nn.Module):
+    """
+    a generic decoder class
+    """
     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
         super().__init__()
         self.device = device
@@ -30,6 +33,9 @@ class Decoder(nn.Module):
                   torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1).sum(-1).sum(-1)
     
 class Decoder_VAE_Gaussian(Decoder):
+    """
+    the decoder of a vae with a spherical Gaussian prior
+    """
     def __init__(self, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
         super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs)
         self.prior_mean = torch.zeros(latent_dim, device=self.device)
@@ -44,6 +50,9 @@ class Decoder_VAE_Gaussian(Decoder):
         return recon, ll, log_pz
     
 class Decoder_VAE_GMM(Decoder):
+    """
+    the decoder of a vae with a mixture of Gaussians prior
+    """
     def __init__(self, optimize_prior, num_clusters, device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs):
         super().__init__(device, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation, dec_paddings, **kwargs)
         self.prior_means = 0.31 * torch.randn((num_clusters, latent_dim), device=self.device)
@@ -51,21 +60,24 @@ class Decoder_VAE_GMM(Decoder):
         if optimize_prior:
             self.prior_means = nn.Parameter(self.prior_means)
             self.prior_log_stds = nn.Parameter(self.prior_log_stds)
-        self.prior_pi = torch.ones(num_clusters, device=device) / num_clusters
+        self.num_clusters = num_clusters
+        self.prior_pi = torch.ones(self.num_clusters, device=device) / num_clusters
 
     def forward(self, z, x):
         S, B, C, H ,W = x.shape
         k = dists.OneHotCategorical(probs=self.prior_pi).sample((S*B,)).argmax(-1)
-#         prior_mean_sampled = self.prior_means[k].view(S,B,-1)
-#         prior_log_std_sampled = self.prior_log_stds[k].view(S,B,-1)
-        recon = self.dec_net(z.view(S*B, -1)).view(S, B, C, H, W)
+        h = self.reshape(self.mlp(z.view(S*B, -1)))
+        recon = self.deconv_net(h).view(S, B, C, H, W)
         p_dist = dists.Normal(self.prior_means[:, None, None, :], 
                               self.prior_log_stds.exp()[:, None, None, :])
-        log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.prior_means.shape[0])
+        log_pz = p_dist.log_prob(z[None]).sum(-1).logsumexp(dim=0) - math.log(self.num_clusters)
         ll = - self.binary_cross_entropy(recon, x)
         return recon, ll, log_pz
 
 class Encoder_VAE(nn.Module):
+    """
+    the encoder of a vae regardless of what prior it is
+    """
     def __init__(self, im_height, im_width, input_channels, channels, kernels, strides, paddings, hidden_dims, latent_dim, activation='ReLU', reparameterized=True, **kwargs):
         super().__init__()
         self.conv_net = cnn_block(im_height, im_width, input_channels, channels, kernels, strides, paddings, activation, last_act=True, batchnorm=False, **kwargs)
